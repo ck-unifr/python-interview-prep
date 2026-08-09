@@ -23,48 +23,54 @@
 
 状态：⬜ 计划中 · 🚧 编写中 · ✅ 已完成
 
+每个主题同时提供 `introduction.md` 与 `introduction.html`，表格中的主题链接默认打开 Markdown 版本。
+
 ### 🧱 1. 数据结构与内建类型
 
 | 主题 | 核心考点 | 状态 |
 | --- | --- | :---: |
-| **Lists** | 内存分配、时间复杂度、列表推导式 | ⬜ |
-| **Tuples** | 不可变性、内存占用、序列解包 | ⬜ |
-| **Dictionaries** | 哈希表、冲突处理、字典推导式 | ⬜ |
-| **Sets** | 集合运算、去重原理、`frozenset` | ⬜ |
-| **Strings** | 字符串驻留、不可变性、格式化 | ⬜ |
-| **Collections** | `Counter`、`namedtuple`、`deque` | ⬜ |
+| [**Lists**](./01-Lists/introduction.md) | 内存分配、时间复杂度、列表推导式 | ✅ |
+| [**Tuples**](./02-Tuple/introduction.md) | 不可变性、可哈希条件、序列解包 | ✅ |
+| [**Dictionaries**](./03-Dictionary/introduction.md) | 哈希表、插入顺序、字典推导式 | ✅ |
+| [**Sets**](./04-Sets/introduction.md) | 集合运算、去重、`frozenset` | ✅ |
+| [**Strings**](./05-Strings/introduction.md) | Unicode、不可变性、字符串驻留 | ✅ |
+| [**Collections**](./06-Collections/introduction.md) | `Counter`、`defaultdict`、`deque` | ✅ |
 
 ### 🧠 2. 高级特性与底层机制
 
 | 主题 | 核心考点 | 状态 |
 | --- | --- | :---: |
-| **Decorators** | 闭包、参数化装饰器、`functools.wraps` | ⬜ |
-| **Generators** | `yield`、惰性计算、生成器与迭代器 | ⬜ |
-| **Context Managers** | `with`、`__enter__`、`__exit__` | ⬜ |
-| **Copying** | 浅拷贝、深拷贝、对象引用关系 | ⬜ |
+| [**Decorators**](./13-Decorators/introduction.md) | 闭包、参数化装饰器、`functools.wraps` | ✅ |
+| [**Generators**](./14-Generators/introduction.md) | `yield`、惰性计算、生成器协议 | ✅ |
+| [**Context Managers**](./21-Context-Manager/introduction.md) | `with`、上下文协议、`contextlib` | ✅ |
+| [**Copying**](./20-Copying/introduction.md) | 浅拷贝、深拷贝、对象图 | ✅ |
 
 ### 🔁 3. 函数与迭代
 
 | 主题 | 核心考点 | 状态 |
 | --- | --- | :---: |
-| **Function Arguments** | `*args`、`**kwargs`、参数传递机制 | ⬜ |
-| **Lambda Functions** | 匿名函数、`map`、`filter`、`reduce` | ⬜ |
-| **Itertools** | 无限迭代器、排列组合、迭代器组合 | ⬜ |
+| [**Function Arguments**](./18-Function-Arguments/introduction.md) | 参数类别、默认值、对象共享调用 | ✅ |
+| [**Lambda Functions**](./08-Lambda/introduction.md) | 匿名函数、闭包、函数式工具 | ✅ |
+| [**Itertools**](./07-Itertools/introduction.md) | 惰性迭代、排列组合、分组累计 | ✅ |
+| [**Asterisk Operator**](./19-The-Asterisk/introduction.md) | 参数收集、解包、容器合并 | ✅ |
+| [**Python Tricks**](./Python-Tricks/introduction.md) | 解包、`join`、`enumerate`、`zip` | ✅ |
 
 ### ⚡ 4. 并发与性能
 
 | 主题 | 核心考点 | 状态 |
 | --- | --- | :---: |
-| **Threading vs. Multiprocessing** | GIL、CPU 密集型与 I/O 密集型任务 | ⬜ |
+| [**Threading vs. Multiprocessing**](./15-Threading-vs-Multiprocessing/introduction.md) | GIL、任务类型、并发模型选型 | ✅ |
+| [**Threading**](./16-Threading-in-Python/introduction.md) | 线程生命周期、锁、线程安全队列 | ✅ |
+| [**Multiprocessing**](./17-Multiprocessing/introduction.md) | 进程池、IPC、共享内存、启动方式 | ✅ |
 
 ### 🛠️ 5. 工程实践与标准库
 
 | 主题 | 核心考点 | 状态 |
 | --- | --- | :---: |
-| **Exceptions** | 异常链、自定义异常、异常处理边界 | ⬜ |
-| **Logging** | 日志级别、Handler、Formatter | ⬜ |
-| **JSON** | 序列化、反序列化、自定义编码 | ⬜ |
-| **Random** | 伪随机数、随机种子、`secrets` | ⬜ |
+| [**Exceptions**](./09-Exceptions/introduction.md) | 异常链、自定义异常、处理边界 | ✅ |
+| [**Logging**](./10-Logging/introduction.md) | Logger、Handler、Formatter、传播 | ✅ |
+| [**JSON**](./11-JSON/introduction.md) | 序列化、反序列化、自定义编码 | ✅ |
+| [**Random Numbers**](./12-RandomNumbers/introduction.md) | 伪随机、随机种子、`secrets` | ✅ |
 
 ## 🚀 开始使用
 

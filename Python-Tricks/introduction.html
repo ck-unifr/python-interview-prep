@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。这些惯用写法用于减少样板代码并清晰表达意图，前提是团队成员能快速读懂。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🪄 Python Tricks（实用技巧）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-tricks实用技巧">🪄 Python Tricks（实用技巧）</h1>
+<blockquote><p>适用 Python 3.8+。这些惯用写法用于减少样板代码并清晰表达意图，前提是团队成员能快速读懂。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>Pythonic 代码强调直接表达数据关系，而不是追求最短字符数。常见工具包括序列解包、<code>join()</code>、<code>enumerate()</code>、<code>zip()</code>、推导式、<code>any()</code> 和 <code>all()</code>。</p>
+<p>判断一个技巧是否值得使用，可以检查三点：</p>
+<ul>
+<li>是否让意图比展开写法更清晰；</li>
+<li>是否避免不必要的中间对象或重复查找；</li>
+<li>是否保留正确的边界行为和错误处理。</li>
+</ul>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>序列解包可交换变量，无需临时变量：</p>
+<pre><code class="language-python">left, right = 5, 10
+left, right = right, left
+print(left, right)  # 10 5
+
+values = [1, 2, 3, 4]
+values[0], values[-1] = values[-1], values[0]
+print(values)  # [4, 2, 3, 1]</code></pre>
+<p>连接字符串使用 <code>join()</code>，同时处理索引和值使用 <code>enumerate()</code>：</p>
+<pre><code class="language-python">words = [&quot;Python&quot;, &quot;is&quot;, &quot;clear&quot;]
+sentence = &quot; &quot;.join(words)
+print(sentence)  # Python is clear
+
+for position, word in enumerate(words, start=1):
+    print(position, word)</code></pre>
+<p><code>zip()</code> 按位置组合多个可迭代对象，<code>any()</code> 与 <code>all()</code> 表达整体条件：</p>
+<pre><code class="language-python">names = [&quot;Ada&quot;, &quot;Linus&quot;, &quot;Grace&quot;]
+scores = [95, 88, 92]
+ranking = dict(zip(names, scores))
+
+print(any(score &gt;= 95 for score in scores))  # True
+print(all(score &gt;= 60 for score in scores))  # True
+print(ranking[&quot;Ada&quot;])                        # 95</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>多目标赋值先计算右侧，再按左侧结构绑定，因此变量交换不会覆盖旧值。</p>
+<p><code>str.join()</code> 先基于片段构造结果，避免循环拼接不可变字符串时反复复制已有内容。连接对象必须全部是字符串，否则抛出 <code>TypeError</code>。</p>
+<p><code>enumerate()</code>、<code>zip()</code>、<code>any()</code> 和 <code>all()</code> 都是惰性消费输入：</p>
+<ul>
+<li><code>zip()</code> 默认在最短输入耗尽时停止；</li>
+<li><code>any()</code> 遇到第一个真值即停止；</li>
+<li><code>all()</code> 遇到第一个假值即停止；</li>
+<li><code>any([])</code> 为 <code>False</code>，<code>all([])</code> 为 <code>True</code>。</li>
+</ul>
+<p>链式比较只对中间表达式求值一次：</p>
+<pre><code class="language-python">age = 36
+print(18 &lt;= age &lt; 65)  # True</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li><code>zip()</code> 长度不一致时会静默截断；需要保留缺失项时使用 <code>itertools.zip_longest()</code>。</li>
+<li><code>join()</code> 不会自动转换非字符串元素，应显式使用 <code>map(str, values)</code> 或格式化逻辑。</li>
+<li><code>all([])</code> 为真属于空真值，业务上要求“至少一个且全部满足”时还需检查输入非空。</li>
+<li>复杂的一行推导式或解包会降低可读性，应拆成有名称的步骤。</li>
+<li>技巧不能替代异常处理、类型边界和性能测量。</li>
+<li>不要在同一表达式中依赖集合或无序来源的迭代顺序。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>Python 如何无临时变量交换值？</td>
+<td>多目标赋值先计算右侧，再统一绑定左侧</td>
+</tr>
+<tr>
+<td>为什么批量字符串拼接用 <code>join()</code>？</td>
+<td>避免不可变字符串在循环中反复复制</td>
+</tr>
+<tr>
+<td><code>zip()</code> 输入长度不同会怎样？</td>
+<td>默认在最短输入结束时停止</td>
+</tr>
+<tr>
+<td><code>any([])</code> 和 <code>all([])</code> 分别是什么？</td>
+<td><code>False</code> 和 <code>True</code></td>
+</tr>
+<tr>
+<td><code>enumerate()</code> 比手动索引好在哪里？</td>
+<td>直接生成位置和值，避免额外状态和越界错误</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html">Python 官方教程：Data Structures</a></li>
+<li><a href="https://docs.python.org/3/library/functions.html">Python 官方文档：Built-in Functions</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#str.join">Python 官方文档：str.join</a></li>
+<li><a href="https://docs.python.org/3/library/itertools.html#itertools.zip_longest">Python 官方文档：itertools.zip_longest</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/Python%20Tricks.ipynb">参考 Notebook：Python Tricks.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

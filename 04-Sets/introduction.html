@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。set 是保存唯一、可哈希元素的可变集合，适合去重、成员测试和集合运算。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🧩 Python Set（集合）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-set集合">🧩 Python Set（集合）</h1>
+<blockquote><p>适用 Python 3.8+。<code>set</code> 是保存唯一、可哈希元素的可变集合，适合去重、成员测试和集合运算。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>特性</th>
+<th><code>set</code></th>
+<th><code>frozenset</code></th>
+</tr></thead><tbody>
+<tr>
+<td>元素唯一</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>元素需可哈希</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>可修改</td>
+<td>是</td>
+<td>否</td>
+</tr>
+<tr>
+<td>自身可哈希</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr>
+<td>支持集合运算</td>
+<td>是</td>
+<td>是</td>
+</tr>
+</tbody></table></div>
+<p>集合不提供位置索引，也不承诺业务可依赖的迭代顺序。空集合必须写成 <code>set()</code>；<code>{}</code> 创建的是字典。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">tags = {&quot;python&quot;, &quot;backend&quot;, &quot;python&quot;}
+tags.add(&quot;api&quot;)
+tags.discard(&quot;missing&quot;)  # 元素不存在也不报错
+
+print(len(tags))
+print(&quot;python&quot; in tags)  # True</code></pre>
+<p>常用集合运算同时提供运算符和方法：</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>运算</th>
+<th class="align-center">运算符</th>
+<th>方法</th>
+</tr></thead><tbody>
+<tr>
+<td>并集</td>
+<td class="align-center"><code>a | b</code></td>
+<td><code>a.union(b)</code></td>
+</tr>
+<tr>
+<td>交集</td>
+<td class="align-center"><code>a &amp; b</code></td>
+<td><code>a.intersection(b)</code></td>
+</tr>
+<tr>
+<td>差集</td>
+<td class="align-center"><code>a - b</code></td>
+<td><code>a.difference(b)</code></td>
+</tr>
+<tr>
+<td>对称差集</td>
+<td class="align-center"><code>a ^ b</code></td>
+<td><code>a.symmetric_difference(b)</code></td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-python">backend = {&quot;Python&quot;, &quot;SQL&quot;, &quot;Linux&quot;}
+data = {&quot;Python&quot;, &quot;SQL&quot;, &quot;Statistics&quot;}
+
+print(backend &amp; data)  # {&#x27;Python&#x27;, &#x27;SQL&#x27;}
+print(backend - data)  # {&#x27;Linux&#x27;}
+print(backend | data)
+
+required = {&quot;Python&quot;, &quot;SQL&quot;}
+print(required &lt;= backend)       # True，子集
+print(backend.isdisjoint({&quot;Go&quot;}))  # True</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>集合与字典一样基于哈希表。成员测试、添加和删除的平均复杂度为 <code>O(1)</code>，遍历为 <code>O(n)</code>；集合运算的成本与参与运算的集合大小相关。</p>
+<p>元素必须可哈希，且哈希值在集合中保持稳定。<code>frozenset</code> 不可变，因此可用于嵌套集合或作为字典键：</p>
+<pre><code class="language-python">permissions = {
+    frozenset({&quot;read&quot;, &quot;write&quot;}): &quot;editor&quot;,
+    frozenset({&quot;read&quot;}): &quot;viewer&quot;,
+}
+
+print(permissions[frozenset({&quot;write&quot;, &quot;read&quot;})])  # editor</code></pre>
+<p><code>update()</code>、<code>intersection_update()</code>、<code>difference_update()</code> 和 <code>symmetric_difference_update()</code> 会原地修改集合；对应的非 <code>update</code> 方法返回新集合。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li><code>remove(x)</code> 在元素缺失时抛出 <code>KeyError</code>；允许缺失时使用 <code>discard(x)</code>。</li>
+<li><code>pop()</code> 删除任意元素，不是随机抽样，也不能依赖返回顺序。</li>
+<li><code>set(values)</code> 去重会丢失原顺序；需要保序去重时可用 <code>list(dict.fromkeys(values))</code>。</li>
+<li>修改集合大小时不要同时遍历它；构造新集合或遍历副本。</li>
+<li>高频成员测试适合集合；数据量很小或必须保留重复与顺序时，列表可能更直接。</li>
+</ul>
+<pre><code class="language-python">values = [3, 1, 3, 2, 1]
+unique_in_order = list(dict.fromkeys(values))
+print(unique_in_order)  # [3, 1, 2]</code></pre>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>如何创建空集合？</td>
+<td>使用 <code>set()</code>，因为 <code>{}</code> 是空字典</td>
+</tr>
+<tr>
+<td>为什么列表不能放入集合？</td>
+<td>列表可变且不可哈希</td>
+</tr>
+<tr>
+<td><code>remove()</code> 与 <code>discard()</code> 有何区别？</td>
+<td>元素缺失时前者抛出 <code>KeyError</code>，后者不报错</td>
+</tr>
+<tr>
+<td><code>set</code> 与 <code>frozenset</code> 有何区别？</td>
+<td>前者可变且不可哈希，后者不可变且可哈希</td>
+</tr>
+<tr>
+<td>集合成员测试为什么通常比列表快？</td>
+<td>集合按哈希定位，列表需要线性扫描</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html#sets">Python 官方教程：Sets</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset">Python 官方文档：Set Types — set, frozenset</a></li>
+<li><a href="https://github.com/python/cpython/blob/main/Objects/setobject.c">CPython 源码：Objects/setobject.c</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/04-Sets.ipynb">参考 Notebook：04-Sets.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

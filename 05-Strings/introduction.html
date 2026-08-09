@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。str 是不可变的 Unicode 文本序列，文本与字节数据应在系统边界明确转换。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🔤 Python String（字符串）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-string字符串">🔤 Python String（字符串）</h1>
+<blockquote><p>适用 Python 3.8+。<code>str</code> 是不可变的 Unicode 文本序列，文本与字节数据应在系统边界明确转换。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>Unicode 文本</td>
+<td><code>str</code> 表示文本，<code>bytes</code> 表示原始字节</td>
+</tr>
+<tr>
+<td>不可变</td>
+<td>不能修改单个位置；所有变换都产生新字符串</td>
+</tr>
+<tr>
+<td>有序序列</td>
+<td>支持索引、切片、遍历和成员测试</td>
+</tr>
+<tr>
+<td>可哈希</td>
+<td>可作为字典键或集合元素</td>
+</tr>
+</tbody></table></div>
+<p>索引按 Unicode 码点工作，不等同于用户看到的“字符簇”。例如某些重音字符或 emoji 可能由多个码点组成。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">text = &quot;  Python Interview  &quot;
+clean = text.strip()
+
+print(clean.lower())              # python interview
+print(clean.startswith(&quot;Python&quot;))  # True
+print(clean.find(&quot;Interview&quot;))     # 7
+print(clean.replace(&quot;Interview&quot;, &quot;Guide&quot;))
+print(clean[0:6])                 # Python</code></pre>
+<p><code>split()</code> 将字符串拆成列表，<code>separator.join(iterable)</code> 将多个字符串高效连接：</p>
+<pre><code class="language-python">line = &quot;python,sql,linux&quot;
+skills = line.split(&quot;,&quot;)
+result = &quot; | &quot;.join(skill.upper() for skill in skills)
+print(result)  # PYTHON | SQL | LINUX</code></pre>
+<p>Python 3.8+ 中优先使用 f-string 表达格式化意图：</p>
+<pre><code class="language-python">name = &quot;Ada&quot;
+score = 95.678
+
+print(f&quot;{name}: {score:.2f}&quot;)  # Ada: 95.68
+print(f&quot;{42:08d}&quot;)             # 00000042</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>因为字符串不可变，循环中反复执行 <code>result += piece</code> 可能持续创建新对象并复制已有内容。已知多个片段时，通常使用 <code>join()</code>：</p>
+<pre><code class="language-python">parts = [&quot;api&quot;, &quot;v1&quot;, &quot;users&quot;]
+path = &quot;/&quot; + &quot;/&quot;.join(parts)
+print(path)  # /api/v1/users</code></pre>
+<p>CPython 可能自动驻留部分字符串，也可通过 <code>sys.intern()</code> 主动驻留，以减少大量重复标识符的存储和比较成本。驻留是实现优化，判断字符串内容必须使用 <code>==</code>，不能使用 <code>is</code>。</p>
+<p>编码用于把文本变为字节，解码执行反向转换：</p>
+<pre><code class="language-python">message = &quot;你好，Python&quot;
+payload = message.encode(&quot;utf-8&quot;)
+restored = payload.decode(&quot;utf-8&quot;)
+
+print(restored == message)  # True</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li><code>strip(chars)</code> 删除两端属于 <code>chars</code> 集合的字符，不是删除完整前后缀。</li>
+<li><code>find()</code> 未找到时返回 <code>-1</code>；<code>index()</code> 未找到时抛出 <code>ValueError</code>。</li>
+<li>不要混用 <code>str</code> 与 <code>bytes</code>；文件、网络和数据库边界应明确字符编码。</li>
+<li>不可信内容不要直接拼接到 SQL、Shell 或 HTML；应使用参数化查询和对应的转义机制。</li>
+<li>需要不区分大小写比较时，国际化文本通常用 <code>casefold()</code> 比 <code>lower()</code> 更稳妥。</li>
+<li>等价 Unicode 文本可能有不同码点组合，必要时使用 <code>unicodedata.normalize()</code>。</li>
+</ul>
+<pre><code class="language-python">import unicodedata
+
+left = &quot;é&quot;
+right = &quot;e\u0301&quot;
+print(left == right)  # False
+print(unicodedata.normalize(&quot;NFC&quot;, right) == left)  # True</code></pre>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>为什么字符串不可变？</td>
+<td>内容变化会创建新对象，因此字符串可安全哈希和共享</td>
+</tr>
+<tr>
+<td><code>str</code> 与 <code>bytes</code> 有何区别？</td>
+<td><code>str</code> 表示 Unicode 文本，<code>bytes</code> 表示字节序列</td>
+</tr>
+<tr>
+<td>大量片段如何拼接？</td>
+<td>使用 <code>separator.join(parts)</code>，避免循环反复复制</td>
+</tr>
+<tr>
+<td><code>==</code> 与 <code>is</code> 比较字符串有何区别？</td>
+<td><code>==</code> 比较内容，<code>is</code> 比较对象身份，不能依赖驻留结果</td>
+</tr>
+<tr>
+<td><code>find()</code> 与 <code>index()</code> 有何区别？</td>
+<td>未找到时分别返回 <code>-1</code> 和抛出 <code>ValueError</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str">Python 官方文档：Text Sequence Type — str</a></li>
+<li><a href="https://docs.python.org/3/library/string.html#format-string-syntax">Python 官方文档：Format String Syntax</a></li>
+<li><a href="https://docs.python.org/3/howto/unicode.html">Python 官方文档：Unicode HOWTO</a></li>
+<li><a href="https://docs.python.org/3/library/sys.html#sys.intern">Python 官方文档：sys.intern</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/05-Strings.ipynb">参考 Notebook：05-Strings.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

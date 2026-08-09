@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。collections 提供针对计数、分组、队列和轻量记录等场景优化的容器类型。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🧰 Python collections</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-collections">🧰 Python collections</h1>
+<blockquote><p>适用 Python 3.8+。<code>collections</code> 提供针对计数、分组、队列和轻量记录等场景优化的容器类型。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>类型</th>
+<th>主要用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Counter</code></td>
+<td>统计可哈希对象的出现次数</td>
+</tr>
+<tr>
+<td><code>defaultdict</code></td>
+<td>键缺失时通过工厂函数创建默认值</td>
+</tr>
+<tr>
+<td><code>deque</code></td>
+<td>在两端以近似 <code>O(1)</code> 复杂度增删元素</td>
+</tr>
+<tr>
+<td><code>namedtuple</code></td>
+<td>创建带字段名的不可变元组子类</td>
+</tr>
+<tr>
+<td><code>OrderedDict</code></td>
+<td>强调重排操作和顺序敏感相等性</td>
+</tr>
+<tr>
+<td><code>ChainMap</code></td>
+<td>将多个映射组合为分层查找视图</td>
+</tr>
+</tbody></table></div>
+<p>普通 <code>dict</code> 从 Python 3.7 起已保证插入顺序；只有需要 <code>move_to_end()</code>、双端弹出或顺序敏感比较时，<code>OrderedDict</code> 才更合适。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p><code>Counter</code> 适合频次统计，<code>defaultdict</code> 适合分组：</p>
+<pre><code class="language-python">from collections import Counter, defaultdict
+
+words = [&quot;api&quot;, &quot;db&quot;, &quot;api&quot;, &quot;cache&quot;, &quot;db&quot;, &quot;api&quot;]
+counts = Counter(words)
+print(counts.most_common(2))  # [(&#x27;api&#x27;, 3), (&#x27;db&#x27;, 2)]
+
+groups = defaultdict(list)
+for name, team in [(&quot;Ada&quot;, &quot;A&quot;), (&quot;Linus&quot;, &quot;B&quot;), (&quot;Grace&quot;, &quot;A&quot;)]:
+    groups[team].append(name)
+
+print(groups[&quot;A&quot;])  # [&#x27;Ada&#x27;, &#x27;Grace&#x27;]</code></pre>
+<p><code>deque</code> 适合队列、双端队列和固定长度窗口：</p>
+<pre><code class="language-python">from collections import deque
+
+queue = deque([&quot;task-1&quot;, &quot;task-2&quot;])
+queue.append(&quot;task-3&quot;)
+current = queue.popleft()
+
+recent = deque(maxlen=3)
+recent.extend([1, 2, 3, 4])
+
+print(current)       # task-1
+print(list(recent))  # [2, 3, 4]</code></pre>
+<p><code>namedtuple</code> 用字段名替代位置索引，同时保留元组语义：</p>
+<pre><code class="language-python">from collections import namedtuple
+
+Point = namedtuple(&quot;Point&quot;, [&quot;x&quot;, &quot;y&quot;])
+point = Point(x=3, y=4)
+
+print(point.x)       # 3
+print(point._asdict())  # {&#x27;x&#x27;: 3, &#x27;y&#x27;: 4}</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<ul>
+<li><code>Counter</code> 是字典子类，缺失键读取为 <code>0</code>，但不会因此自动插入键。</li>
+<li><code>defaultdict(factory)</code> 在 <code>mapping[key]</code> 缺失时调用无参数工厂并写入结果；<code>get()</code> 不会触发工厂。</li>
+<li><code>deque</code> 为两端操作优化；中间索引和删除仍可能是 <code>O(n)</code>。</li>
+<li><code>namedtuple</code> 实例不可变且可解包，但不会自动进行运行时类型校验。</li>
+<li><code>ChainMap</code> 写入默认只作用于第一个映射，读取按映射顺序查找。</li>
+</ul>
+<pre><code class="language-python">from collections import ChainMap
+
+defaults = {&quot;debug&quot;: False, &quot;port&quot;: 8000}
+overrides = {&quot;debug&quot;: True}
+config = ChainMap(overrides, defaults)
+
+print(config[&quot;debug&quot;], config[&quot;port&quot;])  # True 8000</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li><code>Counter</code> 会保留零次和负次数；需要清理时可使用一元加号：<code>clean = +counter</code>。</li>
+<li>读取 <code>defaultdict[key]</code> 会改变字典；只检查时用 <code>key in mapping</code> 或 <code>get()</code>。</li>
+<li><code>extendleft(iterable)</code> 逐个从左侧加入，因此最终顺序与输入相反。</li>
+<li><code>deque</code> 不适合频繁随机访问；该场景继续使用列表。</li>
+<li>需要默认值计算依赖键时，<code>defaultdict</code> 不够直接，应显式处理缺失逻辑。</li>
+<li>需要可变记录、默认值和类型提示时，数据类通常比 <code>namedtuple</code> 更清晰。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>defaultdict</code> 与普通字典有何区别？</td>
+<td><code>[]</code> 访问缺失键时会调用工厂并写入默认值</td>
+</tr>
+<tr>
+<td>为什么队列优先用 <code>deque</code>？</td>
+<td>两端追加和弹出近似 <code>O(1)</code>，列表头部操作为 <code>O(n)</code></td>
+</tr>
+<tr>
+<td><code>Counter</code> 的缺失键返回什么？</td>
+<td>返回整数 <code>0</code></td>
+</tr>
+<tr>
+<td>Python 3.7+ 还需要 <code>OrderedDict</code> 吗？</td>
+<td>仅在重排、双端弹出或顺序敏感相等性等专门场景需要</td>
+</tr>
+<tr>
+<td><code>namedtuple</code> 是否会校验字段类型？</td>
+<td>不会；它只提供字段名和元组行为</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/collections.html">Python 官方文档：collections</a></li>
+<li><a href="https://docs.python.org/3/library/collections.html#collections.Counter">Python 官方文档：Counter</a></li>
+<li><a href="https://docs.python.org/3/library/collections.html#collections.deque">Python 官方文档：deque</a></li>
+<li><a href="https://docs.python.org/3/library/collections.html#collections.defaultdict">Python 官方文档：defaultdict</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/06-Collections.ipynb">参考 Notebook：06-Collections.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

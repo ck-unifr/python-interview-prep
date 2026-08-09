@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。上下文管理器用 with 明确资源或状态的进入与退出边界，即使发生异常也能可靠清理。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🚪 Python Context Managers（上下文管理器）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-context-managers上下文管理器">🚪 Python Context Managers（上下文管理器）</h1>
+<blockquote><p>适用 Python 3.8+。上下文管理器用 <code>with</code> 明确资源或状态的进入与退出边界，即使发生异常也能可靠清理。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>上下文管理协议由两个方法组成：</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>方法</th>
+<th>作用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>__enter__()</code></td>
+<td>进入上下文，获取资源并返回 <code>as</code> 绑定的对象</td>
+</tr>
+<tr>
+<td><code>__exit__(exc_type, exc_value, traceback)</code></td>
+<td>退出上下文，释放资源并决定异常是否继续传播</td>
+</tr>
+</tbody></table></div>
+<p><code>__exit__()</code> 返回真值会压制上下文中的异常；返回 <code>False</code> 或 <code>None</code> 则继续传播。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>类形式适合需要保存状态的管理器：</p>
+<pre><code class="language-python">from time import perf_counter, sleep
+
+class Timer:
+    def __enter__(self):
+        self.started_at = perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.elapsed = perf_counter() - self.started_at
+        return False
+
+with Timer() as timer:
+    sleep(0.01)
+
+print(timer.elapsed &gt; 0)  # True</code></pre>
+<p><code>contextlib.contextmanager</code> 用单次 <code>yield</code> 分隔进入与退出逻辑：</p>
+<pre><code class="language-python">from contextlib import contextmanager
+
+@contextmanager
+def transaction(store):
+    snapshot = store.copy()
+    try:
+        yield store
+    except Exception:
+        store.clear()
+        store.update(snapshot)
+        raise
+
+account = {&quot;balance&quot;: 100}
+with transaction(account):
+    account[&quot;balance&quot;] -= 20
+
+print(account)  # {&#x27;balance&#x27;: 80}</code></pre>
+<p>文件、线程锁和数据库事务都是典型上下文资源：</p>
+<pre><code class="language-python">from threading import Lock
+
+lock = Lock()
+with lock:
+    # 临界区结束后自动释放锁
+    protected_value = 42</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p><code>with manager as value:</code> 的核心语义接近：先调用 <code>__enter__()</code>，再执行主体，最后在清理路径调用 <code>__exit__()</code>。如果 <code>__enter__()</code> 本身失败，尚未成功进入上下文，因此不会调用该对象的 <code>__exit__()</code>。</p>
+<p>多个上下文管理器按从左到右进入、从右到左退出：</p>
+<pre><code class="language-python">with manager_a() as a, manager_b() as b:
+    use(a, b)</code></pre>
+<p>动态数量的上下文管理器可使用 <code>contextlib.ExitStack</code> 注册，并统一按后进先出顺序清理。异步资源对应 <code>async with</code>、<code>__aenter__()</code>、<code>__aexit__()</code> 和 <code>AsyncExitStack</code>。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li><code>__exit__()</code> 不应无条件返回 <code>True</code>，否则会静默吞掉所有异常。</li>
+<li><code>@contextmanager</code> 生成器必须恰好 <code>yield</code> 一次，并把清理逻辑放入 <code>finally</code> 或明确异常路径。</li>
+<li>不要只处理正常退出；清理逻辑必须覆盖异常和提前返回。</li>
+<li>资源获取若分多步完成，应在失败时释放已经获取的部分，复杂场景使用 <code>ExitStack</code>。</li>
+<li>上下文管理器负责生命周期，不应隐藏与生命周期无关的大量业务逻辑。</li>
+<li>事务管理器压制异常前必须有明确契约，否则调用方可能误以为操作成功。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>as</code> 后的值来自哪里？</td>
+<td><code>__enter__()</code> 的返回值</td>
+</tr>
+<tr>
+<td><code>__exit__()</code> 的三个异常参数是什么？</td>
+<td>异常类型、异常实例和 traceback；正常退出时都为 <code>None</code></td>
+</tr>
+<tr>
+<td>如何让异常继续传播？</td>
+<td><code>__exit__()</code> 返回 <code>False</code> 或 <code>None</code>，生成器管理器中重新抛出</td>
+</tr>
+<tr>
+<td>多个管理器的退出顺序是什么？</td>
+<td>与进入顺序相反，后进入先退出</td>
+</tr>
+<tr>
+<td>类管理器与 <code>@contextmanager</code> 如何选择？</td>
+<td>状态和复用复杂时用类；单一获取—释放流程可用生成器形式</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/reference/compound_stmts.html#the-with-statement">Python 语言参考：The with statement</a></li>
+<li><a href="https://docs.python.org/3/reference/datamodel.html#context-managers">Python 数据模型：Context Managers</a></li>
+<li><a href="https://docs.python.org/3/library/contextlib.html">Python 官方文档：contextlib</a></li>
+<li><a href="https://docs.python.org/3/library/contextlib.html#contextlib.ExitStack">Python 官方文档：ExitStack</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/21-Context%20manager.ipynb">参考 Notebook：21-Context manager.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

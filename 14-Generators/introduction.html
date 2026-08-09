@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。生成器按需产生值并在 yield 处保存执行状态，适合流式处理和大规模数据管道。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>⚙️ Python Generators（生成器）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-generators生成器">⚙️ Python Generators（生成器）</h1>
+<blockquote><p>适用 Python 3.8+。生成器按需产生值并在 <code>yield</code> 处保存执行状态，适合流式处理和大规模数据管道。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>函数体中出现 <code>yield</code> 后，调用该函数会返回生成器对象，而不会立即执行函数体。<code>next()</code> 恢复执行，直到下一个 <code>yield</code>；函数结束时抛出 <code>StopIteration</code>。</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>对比</th>
+<th>列表</th>
+<th>生成器</th>
+</tr></thead><tbody>
+<tr>
+<td>计算时机</td>
+<td>通常立即计算全部元素</td>
+<td>按需计算一个元素</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>保存全部结果</td>
+<td>主要保存当前执行状态</td>
+</tr>
+<tr>
+<td>重复遍历</td>
+<td>可以</td>
+<td>通常一次性</td>
+</tr>
+<tr>
+<td>索引与长度</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">def countdown(start):
+    while start &gt; 0:
+        yield start
+        start -= 1
+
+counter = countdown(3)
+print(next(counter))  # 3
+print(next(counter))  # 2
+print(list(counter))  # [1]</code></pre>
+<p>生成器表达式使用圆括号，适合组合惰性处理步骤：</p>
+<pre><code class="language-python">numbers = range(1_000_000)
+squares = (number * number for number in numbers)
+even_squares = (value for value in squares if value % 2 == 0)
+
+first_five = []
+for value in even_squares:
+    first_five.append(value)
+    if len(first_five) == 5:
+        break
+
+print(first_five)  # [0, 4, 16, 36, 64]</code></pre>
+<p><code>yield from</code> 将值生成委托给另一个可迭代对象：</p>
+<pre><code class="language-python">def flatten(groups):
+    for group in groups:
+        yield from group
+
+print(list(flatten([[1, 2], [], [3, 4]])))  # [1, 2, 3, 4]</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>生成器对象同时实现 <code>__iter__()</code> 和 <code>__next__()</code>，因此既是可迭代对象也是迭代器。每次挂起时会保存局部变量、指令位置和异常处理状态。</p>
+<p>生成器支持双向控制：</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>方法</th>
+<th>作用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>next(gen)</code></td>
+<td>恢复执行并获取下一个值</td>
+</tr>
+<tr>
+<td><code>gen.send(value)</code></td>
+<td>向暂停的 <code>yield</code> 表达式发送值</td>
+</tr>
+<tr>
+<td><code>gen.throw(error)</code></td>
+<td>在暂停位置抛入异常</td>
+</tr>
+<tr>
+<td><code>gen.close()</code></td>
+<td>抛入 <code>GeneratorExit</code> 请求清理</td>
+</tr>
+</tbody></table></div>
+<p>生成器中的 <code>return value</code> 会结束迭代，<code>value</code> 存放在 <code>StopIteration.value</code> 中；<code>yield from</code> 可以接收该返回值。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>生成器耗尽后不能自动重置；需要再次遍历时重新调用生成器函数。</li>
+<li>惰性只降低中间结果的内存占用；一旦 <code>list(generator)</code>，仍会保存全部结果。</li>
+<li>生成器没有 <code>len()</code> 和随机索引，算法依赖这些能力时应选择序列。</li>
+<li>不要在生成器内部显式 <code>raise StopIteration</code>；Python 3.7+ 会将其转换为 <code>RuntimeError</code>。</li>
+<li>持有文件、锁等资源的生成器应使用 <code>try/finally</code>，并确保被完整消费或显式关闭。</li>
+<li>生成器表达式捕获外部变量时，同样需要注意闭包的后期绑定。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>调用生成器函数会立即执行吗？</td>
+<td>不会，只创建生成器对象；首次迭代才开始执行</td>
+</tr>
+<tr>
+<td><code>yield</code> 与 <code>return</code> 有何区别？</td>
+<td><code>yield</code> 暂停并可恢复，<code>return</code> 结束当前调用</td>
+</tr>
+<tr>
+<td>生成器为什么节省内存？</td>
+<td>一次只产生当前值，不保存完整结果集合</td>
+</tr>
+<tr>
+<td>生成器能重复遍历吗？</td>
+<td>同一对象通常不能，耗尽后需重新创建</td>
+</tr>
+<tr>
+<td>生成器与迭代器是什么关系？</td>
+<td>生成器是由 Python 自动维护状态的一类迭代器</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/reference/expressions.html#yield-expressions">Python 语言参考：Yield expressions</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#generator-types">Python 官方文档：Generator Types</a></li>
+<li><a href="https://docs.python.org/3/howto/functional.html#generators">Python 官方 HOWTO：Functional Programming</a></li>
+<li><a href="https://peps.python.org/pep-0380/">PEP 380：Syntax for Delegating to a Subgenerator</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/14-Generators.ipynb">参考 Notebook：14-Generators.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。标准库 json 用于 JSON 文本与 Python 基础对象之间的序列化和反序列化。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🔄 Python JSON</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-json">🔄 Python JSON</h1>
+<blockquote><p>适用 Python 3.8+。标准库 <code>json</code> 用于 JSON 文本与 Python 基础对象之间的序列化和反序列化。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Python</th>
+<th>JSON</th>
+<th>反序列化后的 Python 类型</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dict</code></td>
+<td>object</td>
+<td><code>dict</code></td>
+</tr>
+<tr>
+<td><code>list</code>、<code>tuple</code></td>
+<td>array</td>
+<td><code>list</code></td>
+</tr>
+<tr>
+<td><code>str</code></td>
+<td>string</td>
+<td><code>str</code></td>
+</tr>
+<tr>
+<td><code>int</code>、<code>float</code></td>
+<td>number</td>
+<td><code>int</code>、<code>float</code></td>
+</tr>
+<tr>
+<td><code>True</code>、<code>False</code></td>
+<td>true、false</td>
+<td><code>bool</code></td>
+</tr>
+<tr>
+<td><code>None</code></td>
+<td>null</td>
+<td><code>None</code></td>
+</tr>
+</tbody></table></div>
+<p>序列化把对象转换为 JSON，反序列化执行反向转换。<code>dumps()/loads()</code> 操作字符串，<code>dump()/load()</code> 操作文件类对象。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">import json
+
+payload = {
+    &quot;name&quot;: &quot;Ada&quot;,
+    &quot;skills&quot;: [&quot;Python&quot;, &quot;SQL&quot;],
+    &quot;active&quot;: True,
+}
+
+encoded = json.dumps(
+    payload,
+    ensure_ascii=False,
+    separators=(&quot;,&quot;, &quot;:&quot;),
+    sort_keys=True,
+)
+decoded = json.loads(encoded)
+
+print(encoded)
+print(decoded == payload)  # True</code></pre>
+<p><code>dump()</code> 和 <code>load()</code> 可直接处理打开的文本文件或内存流：</p>
+<pre><code class="language-python">import io
+import json
+
+buffer = io.StringIO()
+json.dump({&quot;status&quot;: &quot;ok&quot;}, buffer)
+buffer.seek(0)
+
+print(json.load(buffer))  # {&#x27;status&#x27;: &#x27;ok&#x27;}</code></pre>
+<p>自定义类型可通过 <code>default</code> 转换为 JSON 基础类型，并用 <code>object_hook</code> 恢复：</p>
+<pre><code class="language-python">import json
+from datetime import datetime
+
+def encode_object(value):
+    if isinstance(value, datetime):
+        return {&quot;__type__&quot;: &quot;datetime&quot;, &quot;value&quot;: value.isoformat()}
+    raise TypeError(f&quot;unsupported type: {type(value).__name__}&quot;)
+
+def decode_object(value):
+    if value.get(&quot;__type__&quot;) == &quot;datetime&quot;:
+        return datetime.fromisoformat(value[&quot;value&quot;])
+    return value
+
+encoded = json.dumps(datetime(2026, 8, 9, 10, 30), default=encode_object)
+decoded = json.loads(encoded, object_hook=decode_object)
+print(decoded)  # 2026-08-09 10:30:00</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>JSON object 的键必须是字符串。Python 字典中的整数键序列化后会变成字符串，因此往返转换不一定保持对象完全相等。</p>
+<p>浮点数遵循二进制浮点语义。金融等需要十进制精度的场景，可在解析时使用 <code>Decimal</code>：</p>
+<pre><code class="language-python">import json
+from decimal import Decimal
+
+value = json.loads(&quot;0.1&quot;, parse_float=Decimal)
+print(value, type(value).__name__)  # 0.1 Decimal</code></pre>
+<p>Python 默认允许输出 <code>NaN</code> 和无穷大，但它们不属于严格 JSON。跨系统接口可设置 <code>allow_nan=False</code>，在遇到这些值时及时失败。</p>
+<p><code>JSONEncoder</code> 和 <code>JSONDecoder</code> 可用于更复杂的扩展；多数业务场景使用 <code>default</code>、<code>object_hook</code> 以及显式数据映射已经足够。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>JSON 不保存 Python 的元组、集合、日期时间、<code>Decimal</code> 或自定义类语义，需要明确编码协议。</li>
+<li>不要用 <code>eval()</code> 解析 JSON；始终使用 <code>json.loads()</code>。</li>
+<li>不可信 JSON 可能消耗大量 CPU 或内存，应在网关或读取层限制消息大小和嵌套深度。</li>
+<li><code>object_hook</code> 会处理每个 JSON object，不应依据不可信字段动态导入模块或实例化任意类。</li>
+<li>API 输出应明确字符编码，通常使用 UTF-8，并统一日期、时区和数值约定。</li>
+<li>用 <code>ensure_ascii=False</code> 保留可读 Unicode；写文件时仍需显式使用 UTF-8 编码。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>dump</code> 与 <code>dumps</code> 有何区别？</td>
+<td>前者写文件类对象，后者返回字符串</td>
+</tr>
+<tr>
+<td><code>load</code> 与 <code>loads</code> 有何区别？</td>
+<td>前者读文件类对象，后者解析字符串或字节数据</td>
+</tr>
+<tr>
+<td>元组往返 JSON 后还是元组吗？</td>
+<td>不是，JSON array 会解码为列表</td>
+</tr>
+<tr>
+<td>如何序列化自定义对象？</td>
+<td>用 <code>default</code> 函数或自定义 <code>JSONEncoder</code> 转为基础类型</td>
+</tr>
+<tr>
+<td>JSON 数字如何保留十进制精度？</td>
+<td>使用 <code>parse_float=Decimal</code> 并制定输出编码策略</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/json.html">Python 官方文档：json</a></li>
+<li><a href="https://docs.python.org/3/library/json.html#json.JSONEncoder">Python 官方文档：JSONEncoder</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259：The JavaScript Object Notation Data Interchange Format</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/11-JSON.ipynb">参考 Notebook：11-JSON.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

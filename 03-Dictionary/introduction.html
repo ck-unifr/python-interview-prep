@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。dict 是保存键值映射的可变容器，适合按唯一键快速查询和更新数据。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🗂️ Python Dictionary（字典）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-dictionary字典">🗂️ Python Dictionary（字典）</h1>
+<blockquote><p>适用 Python 3.8+。<code>dict</code> 是保存键值映射的可变容器，适合按唯一键快速查询和更新数据。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>键唯一</td>
+<td>重复赋值会覆盖同一个键对应的值</td>
+</tr>
+<tr>
+<td>键可哈希</td>
+<td>字符串、数字及仅含可哈希元素的元组可作键</td>
+</tr>
+<tr>
+<td>值类型不限</td>
+<td>值可以是任意 Python 对象</td>
+</tr>
+<tr>
+<td>可变</td>
+<td>支持新增、更新和删除键值对</td>
+</tr>
+<tr>
+<td>保持插入顺序</td>
+<td>Python 3.7+ 将插入顺序规定为语言行为</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">user = {&quot;name&quot;: &quot;Ada&quot;, &quot;age&quot;: 36}
+user[&quot;city&quot;] = &quot;London&quot;
+user[&quot;age&quot;] = 37
+
+print(user[&quot;name&quot;])           # Ada
+print(user.get(&quot;email&quot;))      # None
+print(user.get(&quot;role&quot;, &quot;user&quot;))  # user
+
+age = user.pop(&quot;age&quot;)
+print(age)  # 37</code></pre>
+<p><code>items()</code> 同时提供键和值；字典推导式适合做映射或过滤。</p>
+<pre><code class="language-python">scores = {&quot;Ada&quot;: 95, &quot;Linus&quot;: 88, &quot;Grace&quot;: 92}
+
+passed = {
+    name: score
+    for name, score in scores.items()
+    if score &gt;= 90
+}
+
+print(passed)  # {&#x27;Ada&#x27;: 95, &#x27;Grace&#x27;: 92}</code></pre>
+<p><code>update()</code> 原地合并，后出现的同名键覆盖原值：</p>
+<pre><code class="language-python">config = {&quot;debug&quot;: False, &quot;port&quot;: 8000}
+config.update({&quot;debug&quot;: True, &quot;workers&quot;: 4})
+print(config)
+# {&#x27;debug&#x27;: True, &#x27;port&#x27;: 8000, &#x27;workers&#x27;: 4}</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>CPython 字典采用哈希表。查询、插入和删除的平均时间复杂度为 <code>O(1)</code>，遍历为 <code>O(n)</code>；哈希冲突严重时理论最坏可退化到 <code>O(n)</code>。</p>
+<p>查找过程先计算键的哈希值，再用相等性比较确认键。作为键的对象必须在生命周期内保持哈希值稳定，因此列表、字典和普通集合不能作为键。</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>操作</th>
+<th class="align-center">平均复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td><code>mapping[key]</code>、赋值、删除</td>
+<td class="align-center"><code>O(1)</code></td>
+</tr>
+<tr>
+<td><code>key in mapping</code></td>
+<td class="align-center"><code>O(1)</code></td>
+</tr>
+<tr>
+<td><code>len(mapping)</code></td>
+<td class="align-center"><code>O(1)</code></td>
+</tr>
+<tr>
+<td>遍历、<code>copy()</code></td>
+<td class="align-center"><code>O(n)</code></td>
+</tr>
+</tbody></table></div>
+<p><code>keys()</code>、<code>values()</code> 和 <code>items()</code> 返回动态视图，字典变化会反映到视图中，而不是立即复制全部数据。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<p>不要用 <code>dict.fromkeys()</code> 创建相互独立的可变默认值：</p>
+<pre><code class="language-python">bad = dict.fromkeys([&quot;a&quot;, &quot;b&quot;], [])
+bad[&quot;a&quot;].append(1)
+print(bad)  # {&#x27;a&#x27;: [1], &#x27;b&#x27;: [1]}
+
+good = {key: [] for key in (&quot;a&quot;, &quot;b&quot;)}</code></pre>
+<ul>
+<li><code>mapping[key]</code> 在键缺失时抛出 <code>KeyError</code>；允许缺失时用 <code>get()</code>，需要创建默认容器时用 <code>setdefault()</code> 或 <code>defaultdict</code>。</li>
+<li>遍历字典时改变其大小会抛出 <code>RuntimeError</code>；需要删除时遍历 <code>list(mapping)</code> 或构造新字典。</li>
+<li><code>copy()</code> 只复制最外层，嵌套可变值仍共享引用。</li>
+<li>用 <code>in</code> 判断的是键；检查值需要显式使用 <code>value in mapping.values()</code>，其复杂度通常为 <code>O(n)</code>。</li>
+<li>不可信输入不能直接驱动任意对象构造或属性访问。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>字典为什么通常能 <code>O(1)</code> 查询？</td>
+<td>通过键的哈希值定位槽位，再用相等性比较确认</td>
+</tr>
+<tr>
+<td>字典是否有序？</td>
+<td>Python 3.7+ 保证保持插入顺序，但不会按键自动排序</td>
+</tr>
+<tr>
+<td>哪些对象能作为键？</td>
+<td>哈希值稳定且支持相等性比较的可哈希对象</td>
+</tr>
+<tr>
+<td><code>get()</code> 与 <code>setdefault()</code> 有何区别？</td>
+<td><code>get()</code> 不修改字典；缺失时 <code>setdefault()</code> 会写入默认值</td>
+</tr>
+<tr>
+<td>浅拷贝能隔离嵌套值吗？</td>
+<td>不能，嵌套对象仍然共享</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html#dictionaries">Python 官方教程：Dictionaries</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#mapping-types-dict">Python 官方文档：Mapping Types — dict</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#dictionary-view-objects">Python 官方文档：Dictionary view objects</a></li>
+<li><a href="https://github.com/python/cpython/blob/main/Objects/dictobject.c">CPython 源码：Objects/dictobject.c</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/03-Dictionary.ipynb">参考 Notebook：03-Dictionary.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

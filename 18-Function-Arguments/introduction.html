@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。清晰的参数设计能约束调用方式、表达 API 意图，并避免默认值和可变对象引发的隐蔽状态问题。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🧭 Python Function Arguments（函数参数）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-function-arguments函数参数">🧭 Python Function Arguments（函数参数）</h1>
+<blockquote><p>适用 Python 3.8+。清晰的参数设计能约束调用方式、表达 API 意图，并避免默认值和可变对象引发的隐蔽状态问题。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>参数是函数定义中的名称，实参是调用时提供的对象。Python 支持五类参数：</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>参数类别</th>
+<th>定义形式</th>
+<th>调用方式</th>
+</tr></thead><tbody>
+<tr>
+<td>仅限位置</td>
+<td><code>/</code> 之前</td>
+<td>只能按位置</td>
+</tr>
+<tr>
+<td>位置或关键字</td>
+<td>普通参数</td>
+<td>位置或关键字</td>
+</tr>
+<tr>
+<td>可变位置</td>
+<td><code>*args</code></td>
+<td>收集额外位置实参为元组</td>
+</tr>
+<tr>
+<td>仅限关键字</td>
+<td><code>*</code> 之后</td>
+<td>只能按关键字</td>
+</tr>
+<tr>
+<td>可变关键字</td>
+<td><code>**kwargs</code></td>
+<td>收集额外关键字实参为字典</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p><code>/</code> 与 <code>*</code> 可以把公开 API 的调用约束写入签名：</p>
+<pre><code class="language-python">def connect(host, /, port=5432, *, timeout=5, ssl=False):
+    return {
+        &quot;host&quot;: host,
+        &quot;port&quot;: port,
+        &quot;timeout&quot;: timeout,
+        &quot;ssl&quot;: ssl,
+    }
+
+config = connect(&quot;db.internal&quot;, 5433, timeout=10, ssl=True)
+print(config)</code></pre>
+<p>可变参数适合数量真正不固定的输入：</p>
+<pre><code class="language-python">def summarize(title, *values, precision=2, **metadata):
+    average = sum(values) / len(values)
+    return {
+        &quot;title&quot;: title,
+        &quot;average&quot;: round(average, precision),
+        &quot;metadata&quot;: metadata,
+    }
+
+result = summarize(
+    &quot;latency&quot;,
+    10.2, 12.4, 11.8,
+    precision=1,
+    unit=&quot;ms&quot;,
+)
+print(result)</code></pre>
+<p>容器可在调用点解包：</p>
+<pre><code class="language-python">def point(x, y, z=0):
+    return x, y, z
+
+coordinates = [3, 4]
+options = {&quot;z&quot;: 5}
+print(point(*coordinates, **options))  # (3, 4, 5)</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>默认参数在执行 <code>def</code> 时求值一次，而不是每次调用时求值。可变默认值会跨调用共享：</p>
+<pre><code class="language-python">def append_bad(value, items=[]):
+    items.append(value)
+    return items
+
+print(append_bad(1))  # [1]
+print(append_bad(2))  # [1, 2]
+
+def append_safe(value, items=None):
+    if items is None:
+        items = []
+    items.append(value)
+    return items</code></pre>
+<p>Python 常被描述为“对象共享调用”或“对象引用按值传递”：形参先引用传入对象。修改可变对象会被调用方观察到，重新绑定形参不会改变调用方变量。</p>
+<pre><code class="language-python">def mutate(items):
+    items.append(4)
+
+def rebind(items):
+    items = [99]
+
+values = [1, 2, 3]
+mutate(values)
+rebind(values)
+print(values)  # [1, 2, 3, 4]</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>可变默认值使用 <code>None</code> 哨兵，在函数体中创建新对象。</li>
+<li>位置实参必须出现在关键字实参之前，同一参数不能绑定两次。</li>
+<li>仅限关键字参数适合布尔开关、单位、超时等易混淆选项。</li>
+<li>不要用无约束的 <code>**kwargs</code> 隐藏稳定 API；明确参数更利于校验、补全和重构。</li>
+<li>函数内部尽量避免 <code>global</code>；跨闭包修改外层局部变量才使用 <code>nonlocal</code>。</li>
+<li>修改传入容器前应在文档或函数名中明确副作用，必要时先复制。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>*args</code> 和 <code>**kwargs</code> 分别是什么类型？</td>
+<td>元组和字典</td>
+</tr>
+<tr>
+<td>默认参数何时求值？</td>
+<td>函数定义执行时，只求值一次</td>
+</tr>
+<tr>
+<td>Python 是按值还是按引用传递？</td>
+<td>形参获得同一对象的引用；引用本身按调用绑定</td>
+</tr>
+<tr>
+<td><code>/</code> 和 <code>*</code> 在签名中做什么？</td>
+<td>分隔仅限位置参数与仅限关键字参数</td>
+</tr>
+<tr>
+<td>重新绑定形参会改变外部变量吗？</td>
+<td>不会；但修改其引用的可变对象可能影响调用方</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/controlflow.html#more-on-defining-functions">Python 官方教程：More on Defining Functions</a></li>
+<li><a href="https://docs.python.org/3/reference/compound_stmts.html#function-definitions">Python 语言参考：Function definitions</a></li>
+<li><a href="https://docs.python.org/3/faq/programming.html#why-are-default-values-shared-between-objects">Python 官方 FAQ：Why are default values shared?</a></li>
+<li><a href="https://peps.python.org/pep-0570/">PEP 570：Python Positional-Only Parameters</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/18-Functions%20arguments.ipynb">参考 Notebook：18-Functions arguments.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

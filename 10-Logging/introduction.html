@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。logging 将事件按级别发送到控制台、文件或集中式系统，是生产环境可观测性的基础组件。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>📝 Python Logging（日志）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-logging日志">📝 Python Logging（日志）</h1>
+<blockquote><p>适用 Python 3.8+。<code>logging</code> 将事件按级别发送到控制台、文件或集中式系统，是生产环境可观测性的基础组件。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>日志处理链路为：<code>Logger → LogRecord → Handler → Formatter → 输出目标</code>。<code>Filter</code> 可附加在 Logger 或 Handler 上进一步筛选记录。</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>级别</th>
+<th class="align-center">数值</th>
+<th>典型用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>DEBUG</code></td>
+<td class="align-center">10</td>
+<td>开发诊断细节</td>
+</tr>
+<tr>
+<td><code>INFO</code></td>
+<td class="align-center">20</td>
+<td>正常生命周期和关键业务事件</td>
+</tr>
+<tr>
+<td><code>WARNING</code></td>
+<td class="align-center">30</td>
+<td>可继续运行但需要关注的问题</td>
+</tr>
+<tr>
+<td><code>ERROR</code></td>
+<td class="align-center">40</td>
+<td>当前操作失败</td>
+</tr>
+<tr>
+<td><code>CRITICAL</code></td>
+<td class="align-center">50</td>
+<td>服务可能无法继续运行的严重故障</td>
+</tr>
+</tbody></table></div>
+<p>默认阈值为 <code>WARNING</code>，低于阈值的记录不会输出。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>应用入口负责配置，业务模块通过 <code>logging.getLogger(__name__)</code> 获取分层 Logger：</p>
+<pre><code class="language-python">import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=&quot;%(asctime)s %(levelname)s %(name)s %(message)s&quot;,
+)
+
+logger = logging.getLogger(__name__)
+user_id = 42
+logger.info(&quot;user authenticated: user_id=%s&quot;, user_id)</code></pre>
+<p>复杂应用可为不同目标设置独立 Handler 和阈值：</p>
+<pre><code class="language-python">import logging
+
+logger = logging.getLogger(&quot;interview.service&quot;)
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
+
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+handler.setFormatter(
+    logging.Formatter(&quot;%(levelname)s %(name)s %(message)s&quot;)
+)
+
+if not logger.handlers:
+    logger.addHandler(handler)
+
+logger.debug(&quot;hidden by handler&quot;)
+logger.info(&quot;service started&quot;)</code></pre>
+<p>异常处理器内使用 <code>logger.exception()</code> 自动附带 traceback：</p>
+<pre><code class="language-python">try:
+    int(&quot;not-a-number&quot;)
+except ValueError:
+    logger.exception(&quot;failed to parse input&quot;)</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>Logger 名称以点分层，例如 <code>app.api</code> 的父 Logger 是 <code>app</code>。记录默认向祖先 Handler 传播；子 Logger 和根 Logger 同时配置 Handler 时，常出现重复日志。</p>
+<p>Logger 和 Handler 都有级别过滤：记录必须先通过 Logger 阈值，再通过每个 Handler 的阈值。Formatter 只负责输出格式，不决定是否记录。</p>
+<p>工程中通常使用 <code>logging.config.dictConfig()</code> 集中配置；文件增长可使用 <code>RotatingFileHandler</code> 或 <code>TimedRotatingFileHandler</code>。多进程直接写同一文件可能产生竞争，更稳妥的方案是通过 <code>QueueHandler</code> 汇总到单一监听器或外部日志系统。</p>
+<p>参数化日志会推迟字符串格式化，低于阈值时避免不必要工作：</p>
+<pre><code class="language-python">logger.debug(&quot;loaded %d records for %s&quot;, 120, &quot;users&quot;)</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>库代码不要调用 <code>basicConfig()</code>，只创建模块 Logger；最终应用统一决定输出方式。</li>
+<li>避免重复添加 Handler，并理解 <code>propagate</code> 是否开启。</li>
+<li>使用 <code>%s</code> 参数化记录，不要提前拼接昂贵字符串。</li>
+<li>日志中不得写入密码、访问令牌、完整身份证号等敏感信息。</li>
+<li>不要同时记录并重新抛出每一层异常，否则同一失败会重复出现多次。</li>
+<li>结构化日志应保持稳定字段，例如 <code>request_id</code>、<code>user_id</code>、<code>duration_ms</code>，便于检索聚合。</li>
+<li>日志轮转不是长期归档方案；生产环境应结合采集、保留和访问控制策略。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>Logger、Handler、Formatter 分别负责什么？</td>
+<td>创建记录、路由输出、格式化展示</td>
+</tr>
+<tr>
+<td>为什么日志会重复？</td>
+<td>子 Logger 自有 Handler 输出后又向祖先传播</td>
+</tr>
+<tr>
+<td><code>logger.exception()</code> 与 <code>logger.error()</code> 有何区别？</td>
+<td>前者在异常处理块中默认附带 traceback</td>
+</tr>
+<tr>
+<td>为什么推荐 <code>getLogger(__name__)</code>？</td>
+<td>Logger 名称与模块层级一致，便于统一配置和定位来源</td>
+</tr>
+<tr>
+<td>参数化日志有何优势？</td>
+<td>记录被过滤时可避免提前格式化，并分离消息模板与参数</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/logging.html">Python 官方文档：logging</a></li>
+<li><a href="https://docs.python.org/3/howto/logging.html">Python 官方 HOWTO：Logging</a></li>
+<li><a href="https://docs.python.org/3/howto/logging-cookbook.html">Python 官方文档：Logging Cookbook</a></li>
+<li><a href="https://docs.python.org/3/library/logging.config.html">Python 官方文档：logging.config</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/10-Logging.ipynb">参考 Notebook：10-Logging.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

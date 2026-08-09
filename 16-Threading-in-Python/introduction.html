@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。threading 适合在单进程内并发处理 I/O 任务，共享状态必须通过同步原语或线程安全队列协调。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🧵 Threading in Python（多线程）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="threading-in-python多线程">🧵 Threading in Python（多线程）</h1>
+<blockquote><p>适用 Python 3.8+。<code>threading</code> 适合在单进程内并发处理 I/O 任务，共享状态必须通过同步原语或线程安全队列协调。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>同一进程中的线程共享内存、文件描述符和模块状态。共享降低了通信成本，也带来竞态、死锁和可见性问题。</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>原语</th>
+<th>用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Lock</code></td>
+<td>同一时刻只允许一个线程进入临界区</td>
+</tr>
+<tr>
+<td><code>RLock</code></td>
+<td>同一线程可重复获取的可重入锁</td>
+</tr>
+<tr>
+<td><code>Event</code></td>
+<td>在线程间广播一个布尔状态</td>
+</tr>
+<tr>
+<td><code>Condition</code></td>
+<td>等待受锁保护的状态条件</td>
+</tr>
+<tr>
+<td><code>Semaphore</code></td>
+<td>限制同时访问资源的线程数量</td>
+</tr>
+<tr>
+<td><code>queue.Queue</code></td>
+<td>线程安全的任务或数据传递</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p><code>start()</code> 启动线程，<code>join()</code> 等待线程结束；<code>args</code> 必须是元组：</p>
+<pre><code class="language-python">from threading import Thread
+
+results = [None, None, None]
+
+def square(index, value):
+    results[index] = value * value
+
+threads = [
+    Thread(target=square, args=(index, value))
+    for index, value in enumerate([2, 3, 4])
+]
+
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+
+print(results)  # [4, 9, 16]</code></pre>
+<p>复合读改写必须保护整个临界区，锁优先作为上下文管理器使用：</p>
+<pre><code class="language-python">from threading import Lock, Thread
+
+counter = 0
+lock = Lock()
+
+def increment(times):
+    global counter
+    for _ in range(times):
+        with lock:
+            counter += 1
+
+threads = [Thread(target=increment, args=(1000,)) for _ in range(4)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+
+print(counter)  # 4000</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>生产者—消费者模式通常用 <code>Queue</code>，避免手动管理共享列表与条件变量：</p>
+<pre><code class="language-python">from queue import Queue
+from threading import Thread
+
+queue = Queue()
+results = []
+
+def worker():
+    while True:
+        item = queue.get()
+        try:
+            if item is None:
+                return
+            results.append(item * item)
+        finally:
+            queue.task_done()
+
+thread = Thread(target=worker)
+thread.start()
+
+for value in range(4):
+    queue.put(value)
+queue.put(None)  # 哨兵通知退出
+
+queue.join()
+thread.join()
+print(results)  # [0, 1, 4, 9]</code></pre>
+<p><code>Queue.get()</code> 和 <code>put()</code> 可阻塞，<code>task_done()</code> 必须与每次成功的 <code>get()</code> 配对，<code>join()</code> 才能在全部任务完成后返回。</p>
+<p>标准 CPython 构建的 GIL 限制 Python 字节码并行，但不会消除线程切换或数据竞争。I/O 操作和部分 C 扩展可释放 GIL。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>不依赖“看起来原子”的实现细节；共享不变量应由锁或消息传递保护。</li>
+<li>多把锁应采用固定获取顺序，并缩短临界区，降低死锁风险。</li>
+<li>不使用 <code>queue.empty()</code> 做并发终止判断；结果在检查后可能立即变化。</li>
+<li>守护线程会在进程退出时被突然停止，不适合必须提交事务或释放资源的工作。</li>
+<li><code>Thread</code> 中未处理异常不会自动在调用线程重新抛出；需要收集结果时优先 <code>ThreadPoolExecutor</code>。</li>
+<li>阻塞操作应设置超时，并用 <code>Event</code>、哨兵或取消标志实现可控关闭。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>start()</code> 与直接调用 <code>run()</code> 有何区别？</td>
+<td><code>start()</code> 创建并调度新线程；直接 <code>run()</code> 仍在当前线程执行</td>
+</tr>
+<tr>
+<td><code>join()</code> 做什么？</td>
+<td>阻塞调用线程，直到目标线程结束或超时</td>
+</tr>
+<tr>
+<td>为什么 <code>counter += 1</code> 仍可能需要锁？</td>
+<td>它是读、计算、写的复合操作，不能把 GIL 当业务锁</td>
+</tr>
+<tr>
+<td><code>Lock</code> 与 <code>RLock</code> 有何区别？</td>
+<td>后者允许同一线程重复获取，并要求对应次数释放</td>
+</tr>
+<tr>
+<td>Queue 为什么适合线程通信？</td>
+<td>它封装了同步和阻塞，减少直接共享状态</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/threading.html">Python 官方文档：threading</a></li>
+<li><a href="https://docs.python.org/3/library/queue.html">Python 官方文档：queue</a></li>
+<li><a href="https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor">Python 官方文档：ThreadPoolExecutor</a></li>
+<li><a href="https://docs.python.org/3/library/threading.html#lock-objects">Python 官方文档：Synchronization primitives</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/16-Threading%20in%20Python.ipynb">参考 Notebook：16-Threading in Python.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

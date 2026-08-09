@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。tuple 是有序、不可变序列，适合表达结构固定且不应被重新赋值的数据。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>📦 Python Tuple（元组）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-tuple元组">📦 Python Tuple（元组）</h1>
+<blockquote><p>适用 Python 3.8+。<code>tuple</code> 是有序、不可变序列，适合表达结构固定且不应被重新赋值的数据。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>有序</td>
+<td>支持索引、切片和顺序遍历</td>
+</tr>
+<tr>
+<td>不可变</td>
+<td>创建后不能增删元素，也不能为某个索引重新赋值</td>
+</tr>
+<tr>
+<td>可重复</td>
+<td>同一个值可以出现多次</td>
+</tr>
+<tr>
+<td>元素类型不限</td>
+<td>元组可引用任意对象，包括可变对象</td>
+</tr>
+<tr>
+<td>条件可哈希</td>
+<td>仅当所有元素都可哈希时，元组才能作为字典键或集合元素</td>
+</tr>
+</tbody></table></div>
+<p>元组由逗号定义，圆括号主要用于分组。<code>(1)</code> 是整数，<code>(1,)</code> 才是单元素元组。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">user = (&quot;Ada&quot;, 36, &quot;London&quot;)
+single = (42,)
+numbers = tuple(range(5))
+
+print(user[0])      # Ada
+print(numbers[1:4]) # (1, 2, 3)
+print(user.count(&quot;Ada&quot;))  # 1
+print(user.index(36))      # 1</code></pre>
+<p>序列解包要求变量数量与元素数量匹配；星号变量可以接收剩余元素，并始终得到一个列表。</p>
+<pre><code class="language-python">name, age, city = user
+first, *middle, last = (1, 2, 3, 4, 5)
+
+print(name, age, city)  # Ada 36 London
+print(middle)           # [2, 3, 4]</code></pre>
+<p>函数用逗号分隔返回多个值时，实际返回的是元组：</p>
+<pre><code class="language-python">def min_max(values):
+    return min(values), max(values)
+
+minimum, maximum = min_max([3, 1, 8])
+print(minimum, maximum)  # 1 8</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>不可变指元组保存的引用不能被替换，不代表引用对象本身一定不可变。</p>
+<pre><code class="language-python">record = (&quot;settings&quot;, [&quot;dark&quot;])
+record[1].append(&quot;compact&quot;)
+print(record)  # (&#x27;settings&#x27;, [&#x27;dark&#x27;, &#x27;compact&#x27;])</code></pre>
+<p>与列表相比，CPython 元组结构更简单，通常占用更少的容器内存，创建和遍历也可能略快。具体差异受 Python 版本、平台和数据规模影响，不应依赖固定字节数或微小性能差异做设计。</p>
+<p>元组的哈希值取决于各元素。包含列表、字典或集合的元组不可哈希：</p>
+<pre><code class="language-python">coordinates = {(31.2, 121.5): &quot;Shanghai&quot;}
+print(coordinates[(31.2, 121.5)])  # Shanghai
+
+try:
+    hash(([1, 2],))
+except TypeError as error:
+    print(type(error).__name__)  # TypeError</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>单元素元组必须保留尾随逗号：<code>value = (42,)</code>。</li>
+<li><code>a += (x,)</code> 会创建新元组并重新绑定变量，不是原地修改。</li>
+<li>元组只提供浅层不可变性；若业务要求深层不可变，内部也应使用不可变对象。</li>
+<li>结构具有明确字段含义时，优先考虑 <code>typing.NamedTuple</code>、<code>collections.namedtuple</code> 或数据类，提高可读性。</li>
+<li>不要为了未经测量的性能差异，把需要频繁修改的数据强行改成元组。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>元组为什么不可变？</td>
+<td>其元素引用在创建后不能增删或重新赋值</td>
+</tr>
+<tr>
+<td>元组一定可哈希吗？</td>
+<td>不一定；所有元素都可哈希时才可哈希</td>
+</tr>
+<tr>
+<td><code>(1)</code> 与 <code>(1,)</code> 有何区别？</td>
+<td>前者是整数，后者是单元素元组</td>
+</tr>
+<tr>
+<td>元组内的列表能修改吗？</td>
+<td>能；元组限制的是保存的引用，不会冻结引用对象</td>
+</tr>
+<tr>
+<td>何时优先使用元组？</td>
+<td>数据结构固定、语义上不应修改，或需要可哈希序列时</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences">Python 官方教程：Tuples and Sequences</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#sequence-types-list-tuple-range">Python 官方文档：Sequence Types</a></li>
+<li><a href="https://docs.python.org/3/glossary.html#term-hashable">Python 官方文档：Hashable</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/02-Tuple.ipynb">参考 Notebook：02-Tuple.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

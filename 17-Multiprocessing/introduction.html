@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。multiprocessing 通过独立解释器进程执行任务，适合可拆分的纯 Python CPU 密集计算和需要故障隔离的工作。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🏭 Multiprocessing in Python（多进程）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="multiprocessing-in-python多进程">🏭 Multiprocessing in Python（多进程）</h1>
+<blockquote><p>适用 Python 3.8+。<code>multiprocessing</code> 通过独立解释器进程执行任务，适合可拆分的纯 Python CPU 密集计算和需要故障隔离的工作。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>进程默认拥有独立地址空间和 Python 解释器。普通全局变量不会自动同步，数据需要通过序列化消息、共享内存或代理对象交换。</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>组件</th>
+<th>用途</th>
+</tr></thead><tbody>
+<tr>
+<td><code>Process</code></td>
+<td>显式创建和管理单个进程</td>
+</tr>
+<tr>
+<td><code>Pool</code></td>
+<td>复用固定数量工作进程并分发任务</td>
+</tr>
+<tr>
+<td><code>Queue</code>、<code>Pipe</code></td>
+<td>进程间消息传递</td>
+</tr>
+<tr>
+<td><code>Value</code>、<code>Array</code>、<code>shared_memory</code></td>
+<td>共享底层内存</td>
+</tr>
+<tr>
+<td><code>Lock</code>、<code>Event</code>、<code>Semaphore</code></td>
+<td>跨进程同步</td>
+</tr>
+<tr>
+<td><code>Manager</code></td>
+<td>通过服务进程提供共享代理对象</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>工作函数应定义在模块顶层，进程创建必须放在主入口保护下：</p>
+<pre><code class="language-python">from multiprocessing import Process, Queue
+
+def square(value, output):
+    output.put((value, value * value))
+
+if __name__ == &quot;__main__&quot;:
+    output = Queue()
+    processes = [
+        Process(target=square, args=(value, output))
+        for value in range(4)
+    ]
+
+    for process in processes:
+        process.start()
+    results = [output.get() for _ in processes]
+    for process in processes:
+        process.join()
+
+    print(sorted(results))
+    # [(0, 0), (1, 1), (2, 4), (3, 9)]</code></pre>
+<p>大量同构任务优先使用进程池：</p>
+<pre><code class="language-python">from multiprocessing import Pool
+
+def cube(value):
+    return value ** 3
+
+if __name__ == &quot;__main__&quot;:
+    with Pool(processes=4) as pool:
+        results = pool.map(cube, range(6))
+    print(results)  # [0, 1, 8, 27, 64, 125]</code></pre>
+<p>共享值的复合更新必须显式加锁：</p>
+<pre><code class="language-python">from multiprocessing import Process, Value
+
+def increment(counter, times):
+    for _ in range(times):
+        with counter.get_lock():
+            counter.value += 1
+
+if __name__ == &quot;__main__&quot;:
+    counter = Value(&quot;i&quot;, 0)
+    workers = [Process(target=increment, args=(counter, 1000)) for _ in range(4)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join()
+    print(counter.value)  # 4000</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>Python 支持 <code>spawn</code>、<code>fork</code> 和 <code>forkserver</code> 等启动方式，可用性及默认值取决于操作系统和 Python 版本：</p>
+<ul>
+<li><code>spawn</code> 启动全新解释器并导入主模块，隔离清晰但启动较慢。</li>
+<li><code>fork</code> 复制当前进程状态，启动快，但复制多线程进程可能不安全。</li>
+<li><code>forkserver</code> 由单线程服务进程负责派生子进程。</li>
+</ul>
+<p>不要依赖平台默认值。需要固定行为时，在程序入口尽早选择上下文：</p>
+<pre><code class="language-python">import multiprocessing as mp
+
+if __name__ == &quot;__main__&quot;:
+    context = mp.get_context(&quot;spawn&quot;)
+    with context.Pool(2) as pool:
+        print(pool.map(abs, [-2, -1, 0, 1]))</code></pre>
+<p>任务、参数和返回值通常要经过 <code>pickle</code> 序列化。数据过大或任务过短时，序列化与 IPC 可能超过并行收益。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>缺少主入口保护会在 <code>spawn</code> 环境中递归创建进程。</li>
+<li>Lambda、局部函数和不可序列化资源通常不能直接作为进程任务或参数。</li>
+<li><code>value += 1</code> 是读改写复合操作，即使 <code>Value</code> 带锁也应覆盖整个操作。</li>
+<li>不依赖 <code>Queue.empty()</code> 或 <code>qsize()</code> 做正确性判断；并发状态会立即变化且部分平台不支持精确结果。</li>
+<li>子进程异常必须通过结果对象、退出码或监控显式收集。</li>
+<li>数据量大时优先减少传输、批量任务或使用共享内存；不要频繁往返发送细碎对象。</li>
+<li>进程池应显式关闭；上下文管理器可以可靠完成清理。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>多进程如何绕开标准 CPython 的 GIL？</td>
+<td>每个进程拥有独立解释器和 GIL，可在不同核心运行</td>
+</tr>
+<tr>
+<td>为什么需要 <code>if __name__ == &quot;__main__&quot;</code>？</td>
+<td>防止导入主模块时再次创建子进程，尤其是 <code>spawn</code> 模式</td>
+</tr>
+<tr>
+<td>进程间为何不能直接共享普通全局变量？</td>
+<td>进程拥有独立地址空间</td>
+</tr>
+<tr>
+<td>Pool 适合什么任务？</td>
+<td>大量可序列化、相互独立且计算量足以抵消调度成本的任务</td>
+</tr>
+<tr>
+<td>多进程一定更快吗？</td>
+<td>不一定，启动、序列化、IPC 和调度都可能抵消收益</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/multiprocessing.html">Python 官方文档：multiprocessing</a></li>
+<li><a href="https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods">Python 官方文档：Contexts and start methods</a></li>
+<li><a href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing.pool">Python 官方文档：Process Pools</a></li>
+<li><a href="https://docs.python.org/3/library/multiprocessing.shared_memory.html">Python 官方文档：multiprocessing.shared_memory</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/17-Multiprocessing.ipynb">参考 Notebook：17-Multiprocessing.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

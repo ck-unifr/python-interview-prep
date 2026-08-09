@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。赋值、浅拷贝和深拷贝创建的对象关系不同，选择依据是哪些可变层级必须独立。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🪞 Python Copying（浅拷贝与深拷贝）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-copying浅拷贝与深拷贝">🪞 Python Copying（浅拷贝与深拷贝）</h1>
+<blockquote><p>适用 Python 3.8+。赋值、浅拷贝和深拷贝创建的对象关系不同，选择依据是哪些可变层级必须独立。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>操作</th>
+<th>外层对象</th>
+<th>嵌套对象</th>
+</tr></thead><tbody>
+<tr>
+<td><code>alias = original</code></td>
+<td>共享</td>
+<td>共享</td>
+</tr>
+<tr>
+<td><code>copy.copy(original)</code></td>
+<td>新建</td>
+<td>共享引用</td>
+</tr>
+<tr>
+<td><code>copy.deepcopy(original)</code></td>
+<td>新建</td>
+<td>递归复制可变对象</td>
+</tr>
+</tbody></table></div>
+<p>变量保存对象引用。赋值只创建新的名称绑定，不会复制对象。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<pre><code class="language-python">from copy import copy, deepcopy
+
+original = {&quot;name&quot;: &quot;Ada&quot;, &quot;skills&quot;: [&quot;Python&quot;, &quot;SQL&quot;]}
+alias = original
+shallow = copy(original)
+deep = deepcopy(original)
+
+original[&quot;skills&quot;].append(&quot;Linux&quot;)
+original[&quot;name&quot;] = &quot;Grace&quot;
+
+print(alias[&quot;name&quot;])       # Grace，共享外层对象
+print(shallow[&quot;name&quot;])     # Ada，外层已独立
+print(shallow[&quot;skills&quot;])   # [&#x27;Python&#x27;, &#x27;SQL&#x27;, &#x27;Linux&#x27;]
+print(deep[&quot;skills&quot;])      # [&#x27;Python&#x27;, &#x27;SQL&#x27;]</code></pre>
+<p>内建容器通常提供简洁的浅拷贝方式：</p>
+<pre><code class="language-python">source_list = [1, 2, 3]
+copy_a = source_list.copy()
+copy_b = list(source_list)
+copy_c = source_list[:]
+
+source_dict = {&quot;a&quot;: 1}
+copy_d = source_dict.copy()
+copy_e = dict(source_dict)</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p><code>deepcopy()</code> 使用内部 memo 字典记录已复制对象，因此能够处理循环引用，并尽量保持原对象图中的共享关系：</p>
+<pre><code class="language-python">from copy import deepcopy
+
+shared = [1, 2]
+original = [shared, shared]
+cloned = deepcopy(original)
+
+print(cloned[0] is cloned[1])  # True
+print(cloned[0] is shared)     # False</code></pre>
+<p>不可变对象可能被安全复用，因此深拷贝不保证每个节点都有新身份。函数、类等对象通常按原对象返回；模块、栈帧、套接字等资源对象不适合通用复制。</p>
+<p>自定义类可实现 <code>__copy__()</code> 和 <code>__deepcopy__(memo)</code> 控制行为。实现深拷贝时必须使用并传递 <code>memo</code>，否则循环引用可能导致无限递归或破坏共享结构。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>深拷贝不是默认安全选项；对象图大时会显著增加时间和内存成本。</li>
+<li>文件、锁、数据库连接和网络套接字应明确管理所有权，通常不应复制。</li>
+<li>浅拷贝足以隔离外层增删，但无法隔离嵌套可变对象。</li>
+<li>只需修改少数字段时，显式构造新对象通常比深拷贝整个图更清晰。</li>
+<li>不可变数据结构能减少复制需求，并让并发代码更易推理。</li>
+<li>测试复制逻辑时同时检查 <code>==</code> 与关键节点的 <code>is</code> 关系。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>b = a</code> 是否复制对象？</td>
+<td>不复制，只让两个名称引用同一对象</td>
+</tr>
+<tr>
+<td>浅拷贝复制几层？</td>
+<td>创建新外层容器，嵌套对象仍共享</td>
+</tr>
+<tr>
+<td>深拷贝如何处理循环引用？</td>
+<td>通过 memo 记录已复制对象，避免无限递归</td>
+</tr>
+<tr>
+<td>深拷贝是否让所有对象身份都不同？</td>
+<td>不一定，不可变或特殊对象可能被复用</td>
+</tr>
+<tr>
+<td>何时应避免深拷贝？</td>
+<td>对象图很大、包含外部资源或只需局部更新时</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/copy.html">Python 官方文档：copy</a></li>
+<li><a href="https://docs.python.org/3/reference/datamodel.html#objects-values-and-types">Python 官方文档：Object identity</a></li>
+<li><a href="https://docs.python.org/3/faq/programming.html#how-do-i-copy-an-object-in-python">Python 官方 FAQ：How do I copy an object?</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/20-Copying.ipynb">参考 Notebook：20-Copying.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

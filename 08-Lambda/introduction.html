@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。lambda 用单个表达式创建匿名函数，适合短小、局部且语义直观的回调。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>λ Python Lambda（匿名函数）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="λ-python-lambda匿名函数">λ Python Lambda（匿名函数）</h1>
+<blockquote><p>适用 Python 3.8+。<code>lambda</code> 用单个表达式创建匿名函数，适合短小、局部且语义直观的回调。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<p>语法为 <code>lambda parameters: expression</code>。表达式的结果会自动返回，无需写 <code>return</code>。</p>
+<pre><code class="language-python">add = lambda left, right: left + right
+print(add(2, 3))  # 5</code></pre>
+<p><code>lambda</code> 可以使用与普通函数相同的参数形式，但函数体只能包含一个表达式，不能直接写赋值、<code>try</code>、<code>while</code> 等语句。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>最常见场景是提供短小的排序键：</p>
+<pre><code class="language-python">users = [
+    {&quot;name&quot;: &quot;Linus&quot;, &quot;score&quot;: 88},
+    {&quot;name&quot;: &quot;Ada&quot;, &quot;score&quot;: 95},
+    {&quot;name&quot;: &quot;Grace&quot;, &quot;score&quot;: 95},
+]
+
+ranked = sorted(
+    users,
+    key=lambda user: (-user[&quot;score&quot;], user[&quot;name&quot;]),
+)
+print([user[&quot;name&quot;] for user in ranked])
+# [&#x27;Ada&#x27;, &#x27;Grace&#x27;, &#x27;Linus&#x27;]</code></pre>
+<p><code>map()</code> 和 <code>filter()</code> 返回迭代器；简单转换或过滤通常用推导式更易读：</p>
+<pre><code class="language-python">numbers = [1, 2, 3, 4]
+
+doubled = list(map(lambda value: value * 2, numbers))
+evens = list(filter(lambda value: value % 2 == 0, numbers))
+
+# 等价且通常更直观
+doubled_comp = [value * 2 for value in numbers]
+evens_comp = [value for value in numbers if value % 2 == 0]</code></pre>
+<p><code>functools.reduce()</code> 将序列归约为一个值，但已有专用函数时优先使用 <code>sum()</code>、<code>min()</code>、<code>max()</code> 等：</p>
+<pre><code class="language-python">from functools import reduce
+from operator import mul
+
+product = reduce(mul, [1, 2, 3, 4], 1)
+print(product)  # 24</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>Lambda 与普通嵌套函数一样形成闭包，并按名称在调用时查找外层变量。循环中直接创建闭包容易出现后期绑定：</p>
+<pre><code class="language-python">bad = [lambda: number for number in range(3)]
+print([function() for function in bad])  # [2, 2, 2]
+
+# 默认参数在函数创建时求值，可固定当前值
+good = [lambda number=number: number for number in range(3)]
+print([function() for function in good])  # [0, 1, 2]</code></pre>
+<p>排序的 <code>key</code> 函数对每个输入元素调用一次，其返回值用于比较。把昂贵计算放进键函数通常仍优于在比较函数中反复计算。</p>
+<p>返回 lambda 可以构造简单函数工厂：</p>
+<pre><code class="language-python">def multiplier(factor):
+    return lambda value: value * factor
+
+double = multiplier(2)
+print(double(6))  # 12</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>已命名并会复用的复杂逻辑应使用 <code>def</code>，便于文档、类型标注、调试和测试。</li>
+<li>不要为了“一行代码”嵌套多个 lambda；可读性优先于行数。</li>
+<li>循环闭包需注意后期绑定，可用默认参数固定值，或定义显式函数工厂。</li>
+<li>Lambda 的跟踪信息通常显示为 <code>&lt;lambda&gt;</code>，大量使用会降低故障定位效率。</li>
+<li><code>map()</code>、<code>filter()</code> 在 Python 3 中是惰性迭代器；需要列表时显式转换。</li>
+<li>仅为赋值命名 lambda 不符合常见风格，此时直接使用 <code>def</code> 更清晰。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>Lambda 能写多少个表达式？</td>
+<td>只能写一个表达式，但可接收任意合法参数形式</td>
+</tr>
+<tr>
+<td>Lambda 是否自动返回值？</td>
+<td>是，表达式结果就是返回值</td>
+</tr>
+<tr>
+<td>为什么循环中的 lambda 常返回同一个值？</td>
+<td>闭包在调用时读取同一个外层变量，属于后期绑定</td>
+</tr>
+<tr>
+<td><code>map/filter</code> 与推导式如何选择？</td>
+<td>简单转换过滤优先推导式；已有函数或惰性管道可用前者</td>
+</tr>
+<tr>
+<td>Lambda 与 <code>def</code> 的本质差异是什么？</td>
+<td>都创建函数对象；Lambda 受单表达式限制且名称通常为 <code>&lt;lambda&gt;</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/reference/expressions.html#lambda">Python 语言参考：Lambdas</a></li>
+<li><a href="https://docs.python.org/3/howto/functional.html">Python 官方 HOWTO：Functional Programming</a></li>
+<li><a href="https://docs.python.org/3/library/functools.html#functools.reduce">Python 官方文档：functools.reduce</a></li>
+<li><a href="https://docs.python.org/3/howto/sorting.html">Python 官方文档：Sorting HOW TO</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/08-Lambda.ipynb">参考 Notebook：08-Lambda.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

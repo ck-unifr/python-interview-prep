@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。仿真与测试使用 random，密码、令牌和安全选择必须使用 secrets。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🎲 Python Random Numbers（随机数）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-random-numbers随机数">🎲 Python Random Numbers（随机数）</h1>
+<blockquote><p>适用 Python 3.8+。仿真与测试使用 <code>random</code>，密码、令牌和安全选择必须使用 <code>secrets</code>。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>工具</th>
+<th>随机源</th>
+<th>适用场景</th>
+</tr></thead><tbody>
+<tr>
+<td><code>random</code></td>
+<td>确定性伪随机生成器</td>
+<td>仿真、抽样、游戏、可复现测试</td>
+</tr>
+<tr>
+<td><code>secrets</code></td>
+<td>操作系统提供的安全随机源</td>
+<td>令牌、密码重置链接、安全选择</td>
+</tr>
+<tr>
+<td><code>random.SystemRandom</code></td>
+<td>操作系统提供的随机源</td>
+<td>需要 <code>random</code> 风格 API 的安全抽样</td>
+</tr>
+<tr>
+<td>NumPy <code>Generator</code></td>
+<td>独立的向量化伪随机生成器</td>
+<td>科学计算和多维数组</td>
+</tr>
+</tbody></table></div>
+<p><code>random</code> 默认核心生成器是 Mersenne Twister，可复现但不具备密码学安全性。</p>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>使用独立 <code>Random</code> 实例可避免修改模块级全局状态：</p>
+<pre><code class="language-python">import random
+
+rng = random.Random(42)
+
+print(rng.random())          # [0.0, 1.0)
+print(rng.uniform(1.0, 5.0))
+print(rng.randint(1, 6))     # 两端都包含
+print(rng.randrange(0, 10))  # 不包含 10
+print(rng.choice([&quot;A&quot;, &quot;B&quot;, &quot;C&quot;]))
+print(rng.sample(range(10), k=3))  # 不放回抽样
+
+items = [1, 2, 3, 4]
+rng.shuffle(items)           # 原地打乱并返回 None</code></pre>
+<p><code>choices()</code> 支持放回抽样和权重：</p>
+<pre><code class="language-python">import random
+
+rng = random.Random(7)
+result = rng.choices(
+    population=[&quot;common&quot;, &quot;rare&quot;],
+    weights=[95, 5],
+    k=5,
+)
+print(result)</code></pre>
+<p>安全令牌使用 <code>secrets</code>：</p>
+<pre><code class="language-python">import secrets
+
+token = secrets.token_urlsafe(32)
+code = &quot;&quot;.join(secrets.choice(&quot;0123456789&quot;) for _ in range(6))
+
+print(len(token) &gt; 32)  # True
+print(len(code))        # 6</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>相同种子使伪随机状态从同一起点演化，因此同一调用序列可复现：</p>
+<pre><code class="language-python">import random
+
+first = random.Random(123)
+second = random.Random(123)
+
+print([first.randrange(100) for _ in range(4)])
+print([second.randrange(100) for _ in range(4)])</code></pre>
+<p>复现依赖种子、调用顺序和受控的软件环境。并发共享同一个生成器会让调用顺序不稳定；测试中可为每个任务提供独立实例。</p>
+<p>NumPy 使用独立随机状态，调用 <code>random.seed()</code> 不会设置 NumPy 生成器。现代代码使用 <code>default_rng()</code>：</p>
+<pre><code class="language-python"># 需要额外安装 NumPy
+import numpy as np
+
+rng = np.random.default_rng(42)
+values = rng.integers(0, 10, size=(2, 3))
+print(values)</code></pre>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>不要用 <code>random</code> 生成会话令牌、验证码密钥或密码；使用 <code>secrets</code>。</li>
+<li>不要在每次取样前重新设置种子，这会重复产生相同模式。</li>
+<li><code>randint(a, b)</code> 包含 <code>b</code>，<code>randrange(a, b)</code> 不包含 <code>b</code>。</li>
+<li><code>sample()</code> 不放回，<code>choices()</code> 默认放回；前者要求 <code>k</code> 不超过总体大小。</li>
+<li><code>shuffle()</code> 原地修改列表并返回 <code>None</code>。</li>
+<li>安全令牌应有足够熵、设置有效期并在服务端安全存储；随机性不能替代完整安全设计。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td>伪随机是否等于不可预测？</td>
+<td>不等于；已知状态或种子时序列可预测</td>
+</tr>
+<tr>
+<td><code>random</code> 与 <code>secrets</code> 如何选择？</td>
+<td>普通仿真用前者，任何安全用途用后者</td>
+</tr>
+<tr>
+<td><code>sample</code> 与 <code>choices</code> 有何区别？</td>
+<td>前者不放回，后者默认放回且支持权重</td>
+</tr>
+<tr>
+<td><code>seed()</code> 的主要用途是什么？</td>
+<td>让受控环境中的伪随机调用序列可复现</td>
+</tr>
+<tr>
+<td>NumPy 是否共享 <code>random</code> 的种子？</td>
+<td>不共享，应独立创建和传递 NumPy Generator</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/library/random.html">Python 官方文档：random</a></li>
+<li><a href="https://docs.python.org/3/library/secrets.html">Python 官方文档：secrets</a></li>
+<li><a href="https://docs.python.org/3/library/random.html#random.SystemRandom">Python 官方文档：random.SystemRandom</a></li>
+<li><a href="https://numpy.org/doc/stable/reference/random/generator.html">NumPy 官方文档：Random Generator</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/12-RandomNumbers.ipynb">参考 Notebook：12-RandomNumbers.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

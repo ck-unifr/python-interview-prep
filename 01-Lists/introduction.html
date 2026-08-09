@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。list 是按位置保存元素的可变序列，适合有序存储、索引访问和顺序遍历。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🧱 Python List（列表）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-list列表">🧱 Python List（列表）</h1>
+<blockquote><p>适用 Python 3.8+。<code>list</code> 是按位置保存元素的可变序列，适合有序存储、索引访问和顺序遍历。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>特性</th>
+<th>说明</th>
+</tr></thead><tbody>
+<tr>
+<td>有序</td>
+<td>元素按位置保存；有序不等于自动排序</td>
+</tr>
+<tr>
+<td>可变</td>
+<td>创建后可以新增、删除或替换元素</td>
+</tr>
+<tr>
+<td>可重复</td>
+<td>同一个值可以出现多次</td>
+</tr>
+<tr>
+<td>元素类型不限</td>
+<td>可引用任意对象；工程代码通常保持元素类型一致</td>
+</tr>
+<tr>
+<td>不可哈希</td>
+<td><code>list</code> 不能作为集合元素或字典键</td>
+</tr>
+</tbody></table></div>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>列表可通过 <code>[]</code> 或 <code>list(iterable)</code> 创建。索引从 <code>0</code> 开始，负索引从末尾计数。</p>
+<pre><code class="language-python">fruits = [&quot;apple&quot;, &quot;banana&quot;, &quot;apple&quot;]
+fruits[1] = &quot;pear&quot;
+fruits.append(&quot;orange&quot;)
+fruits.extend([&quot;lemon&quot;, &quot;mango&quot;])
+removed = fruits.pop()
+
+print(fruits[0])         # apple
+print(fruits[-1])        # lemon
+print(&quot;pear&quot; in fruits)  # True
+print(removed)           # mango</code></pre>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>操作</th>
+<th>作用</th>
+</tr></thead><tbody>
+<tr>
+<td><code>append(x)</code></td>
+<td>在末尾添加一个对象</td>
+</tr>
+<tr>
+<td><code>extend(iterable)</code></td>
+<td>逐个追加可迭代对象中的元素</td>
+</tr>
+<tr>
+<td><code>insert(i, x)</code></td>
+<td>在索引 <code>i</code> 前插入</td>
+</tr>
+<tr>
+<td><code>pop([i])</code></td>
+<td>删除并返回指定元素，默认处理末尾</td>
+</tr>
+<tr>
+<td><code>remove(x)</code></td>
+<td>删除第一个等于 <code>x</code> 的元素</td>
+</tr>
+<tr>
+<td><code>index(x)</code>、<code>count(x)</code></td>
+<td>查询首次位置和出现次数</td>
+</tr>
+<tr>
+<td><code>reverse()</code>、<code>sort()</code></td>
+<td>原地反转和排序</td>
+</tr>
+</tbody></table></div>
+<p>切片语法为 <code>items[start:stop:step]</code>，包含 <code>start</code>、不包含 <code>stop</code>：</p>
+<pre><code class="language-python">numbers = list(range(10))
+
+print(numbers[2:7:2])  # [2, 4, 6]
+print(numbers[-3:])    # [7, 8, 9]
+print(numbers[::-1])   # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+
+numbers[2:5] = [20, 30]  # 切片赋值可改变列表长度</code></pre>
+<p>推导式适合简单映射和过滤，<code>enumerate()</code> 同时提供位置和值：</p>
+<pre><code class="language-python">names = [&quot;Ada&quot;, &quot;Guido&quot;, &quot;Grace&quot;]
+lengths = [len(name) for name in names]
+long_names = [name for name in names if len(name) &gt; 4]
+
+for position, name in enumerate(names, start=1):
+    print(position, name)
+
+print(lengths)     # [3, 5, 5]
+print(long_names)  # [&#x27;Guido&#x27;, &#x27;Grace&#x27;]</code></pre>
+<p><code>sort()</code> 原地排序并返回 <code>None</code>；<code>sorted()</code> 接收任意可迭代对象并返回新列表。两者都是稳定排序，并支持 <code>key</code> 和 <code>reverse</code>。</p>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>赋值共享同一列表；<code>copy()</code>、<code>list(source)</code> 和 <code>source[:]</code> 只复制最外层：</p>
+<pre><code class="language-python">from copy import deepcopy
+
+original = [[1, 2], [3, 4]]
+alias = original
+shallow = original.copy()
+deep = deepcopy(original)
+
+original[0].append(99)
+
+print(alias)    # [[1, 2, 99], [3, 4]]
+print(shallow)  # [[1, 2, 99], [3, 4]]
+print(deep)     # [[1, 2], [3, 4]]</code></pre>
+<p>设 <code>n</code> 为列表长度，<code>k</code> 为本次处理的元素数：</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>操作</th>
+<th class="align-center">时间复杂度</th>
+</tr></thead><tbody>
+<tr>
+<td><code>len(items)</code>、<code>items[i]</code>、索引赋值</td>
+<td class="align-center"><code>O(1)</code></td>
+</tr>
+<tr>
+<td><code>append(x)</code></td>
+<td class="align-center">均摊 <code>O(1)</code></td>
+</tr>
+<tr>
+<td><code>pop()</code></td>
+<td class="align-center"><code>O(1)</code></td>
+</tr>
+<tr>
+<td><code>extend(iterable)</code>、切片复制</td>
+<td class="align-center"><code>O(k)</code></td>
+</tr>
+<tr>
+<td>中间插入、删除或 <code>pop(i)</code></td>
+<td class="align-center"><code>O(n)</code></td>
+</tr>
+<tr>
+<td><code>x in items</code>、<code>index()</code>、<code>remove()</code></td>
+<td class="align-center"><code>O(n)</code></td>
+</tr>
+<tr>
+<td><code>copy()</code></td>
+<td class="align-center"><code>O(n)</code></td>
+</tr>
+<tr>
+<td><code>sort()</code></td>
+<td class="align-center">通常及最坏 <code>O(n log n)</code>；已有顺序时可接近 <code>O(n)</code></td>
+</tr>
+</tbody></table></div>
+<p>在 CPython 中，列表底层是连续的对象引用数组。扩容时会预留空间，因此多数 <code>append()</code> 为 <code>O(1)</code>，少数操作需要重新分配并复制引用，整体为均摊 <code>O(1)</code>。中间增删需要移动后续引用，所以为 <code>O(n)</code>。该内存布局属于 CPython 实现细节。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<p>序列乘法会重复引用，不能用来创建相互独立的二维列表：</p>
+<pre><code class="language-python">bad = [[0] * 3] * 2
+bad[0][0] = 1
+print(bad)  # [[1, 0, 0], [1, 0, 0]]
+
+good = [[0] * 3 for _ in range(2)]
+good[0][0] = 1
+print(good)  # [[1, 0, 0], [0, 0, 0]]</code></pre>
+<ul>
+<li>遍历时直接删除元素可能漏处理；过滤时构造新列表。</li>
+<li>原地修改方法通常返回 <code>None</code>，不要把 <code>append()</code> 或 <code>sort()</code> 的结果重新赋给列表。</li>
+<li>频繁从头部增删使用 <code>collections.deque</code>，避免整体移动。</li>
+<li>高频成员测试且允许去重时使用 <code>set</code>。</li>
+<li>推导式包含多层嵌套、复杂条件或副作用时，普通循环更清晰。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>append(x)</code> 与 <code>extend(xs)</code> 有何区别？</td>
+<td>前者添加一个对象，后者逐个追加元素</td>
+</tr>
+<tr>
+<td>为什么 <code>append()</code> 是均摊 <code>O(1)</code>？</td>
+<td>CPython 扩容时预留空间，只有少数追加需要重新分配</td>
+</tr>
+<tr>
+<td>切片是深拷贝吗？</td>
+<td>不是，只创建新的外层列表</td>
+</tr>
+<tr>
+<td><code>sort()</code> 与 <code>sorted()</code> 如何选择？</td>
+<td>允许修改原列表用前者；需保留原数据或处理任意迭代对象用后者</td>
+</tr>
+<tr>
+<td>为什么头部插入是 <code>O(n)</code>？</td>
+<td>需要移动后续元素引用</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/datastructures.html#more-on-lists">Python 官方教程：More on Lists</a></li>
+<li><a href="https://docs.python.org/3/library/stdtypes.html#lists">Python 官方文档：Sequence Types — list</a></li>
+<li><a href="https://docs.python.org/3/howto/sorting.html">Python 官方文档：Sorting HOW TO</a></li>
+<li><a href="https://github.com/python/cpython/blob/main/Objects/listobject.c">CPython 源码：Objects/listobject.c</a></li>
+<li><a href="https://wiki.python.org/moin/TimeComplexity">Python Wiki：TimeComplexity</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/01-Lists.ipynb">参考 Notebook：01-Lists.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>

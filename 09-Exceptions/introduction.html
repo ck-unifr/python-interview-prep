@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="适用 Python 3.8+。异常用于报告和传播运行时失败，应在能够恢复、补充上下文或转换边界语义的位置处理。">
+  <meta name="generator" content="scripts/render_introductions.py">
+  <title>🚨 Python Exceptions（异常）</title>
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body>
+  <main>
+<h1 id="python-exceptions异常">🚨 Python Exceptions（异常）</h1>
+<blockquote><p>适用 Python 3.8+。异常用于报告和传播运行时失败，应在能够恢复、补充上下文或转换边界语义的位置处理。</p></blockquote>
+<nav class="toc" aria-labelledby="目录">
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#1-核心概念">1. 核心概念</a></li>
+<li><a href="#2-核心用法">2. 核心用法</a></li>
+<li><a href="#3-关键机制">3. 关键机制</a></li>
+<li><a href="#4-常见陷阱与工程实践">4. 常见陷阱与工程实践</a></li>
+<li><a href="#5-面试速查">5. 面试速查</a></li>
+<li><a href="#6-参考资料">6. 参考资料</a></li>
+</ul></nav>
+<h2 id="1-核心概念">1. 核心概念</h2>
+<ul>
+<li><code>SyntaxError</code> 表示源码无法被正确解析，通常在程序运行前发现。</li>
+<li>异常表示语法合法的代码在执行时无法完成操作，例如 <code>ValueError</code>、<code>TypeError</code>、<code>KeyError</code>。</li>
+<li>大多数应用异常继承自 <code>Exception</code>；<code>SystemExit</code>、<code>KeyboardInterrupt</code> 等直接继承自 <code>BaseException</code>，通常不应被业务代码吞掉。</li>
+<li><code>raise</code> 主动抛出异常，<code>try/except</code> 处理预期失败，<code>finally</code> 保证清理逻辑执行。</li>
+</ul>
+<h2 id="2-核心用法">2. 核心用法</h2>
+<p>捕获范围应尽量小，并针对具体异常：</p>
+<pre><code class="language-python">def parse_port(raw):
+    try:
+        port = int(raw)
+    except (TypeError, ValueError) as error:
+        raise ValueError(&quot;port must be an integer&quot;) from error
+    else:
+        if not 1 &lt;= port &lt;= 65535:
+            raise ValueError(&quot;port out of range&quot;)
+        return port
+
+print(parse_port(&quot;8080&quot;))  # 8080</code></pre>
+<p><code>else</code> 仅在 <code>try</code> 未抛异常时执行，可避免把后续代码意外纳入捕获范围。<code>finally</code> 无论是否发生异常都会执行：</p>
+<pre><code class="language-python">def divide(left, right):
+    try:
+        return left / right
+    except ZeroDivisionError:
+        return None
+    finally:
+        print(&quot;calculation finished&quot;)
+
+print(divide(6, 2))  # 3.0</code></pre>
+<p>自定义异常用于表达领域语义，通常保持结构简单：</p>
+<pre><code class="language-python">class InsufficientBalanceError(Exception):
+    def __init__(self, balance, amount):
+        super().__init__(f&quot;balance={balance}, amount={amount}&quot;)
+        self.balance = balance
+        self.amount = amount
+
+def withdraw(balance, amount):
+    if amount &gt; balance:
+        raise InsufficientBalanceError(balance, amount)
+    return balance - amount</code></pre>
+<h2 id="3-关键机制">3. 关键机制</h2>
+<p>异常发生后，解释器沿调用栈向上查找匹配的处理器，这一过程称为栈展开。若没有处理器，程序打印 traceback 并终止当前执行流。</p>
+<p><code>raise NewError(...) from original</code> 建立显式异常链，保留底层原因并提供更合适的抽象：</p>
+<pre><code class="language-python">class ConfigError(Exception):
+    pass
+
+def load_timeout(config):
+    try:
+        return int(config[&quot;timeout&quot;])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ConfigError(&quot;invalid timeout configuration&quot;) from error</code></pre>
+<p>在 <code>except</code> 中单独写 <code>raise</code> 会保留原 traceback 重新抛出；写 <code>raise error</code> 会改变 traceback 的重新抛出位置。</p>
+<p>上下文管理器通常比手写 <code>try/finally</code> 更适合资源清理，例如文件、锁和数据库事务。</p>
+<h2 id="4-常见陷阱与工程实践">4. 常见陷阱与工程实践</h2>
+<ul>
+<li>避免裸 <code>except:</code>；它会捕获 <code>KeyboardInterrupt</code> 和 <code>SystemExit</code> 等控制流异常。</li>
+<li>不要用过宽的 <code>except Exception</code> 静默忽略错误；至少记录上下文或重新抛出。</li>
+<li><code>assert</code> 用于开发期不变量，不用于参数校验、权限或安全检查，因为优化模式可移除断言。</li>
+<li>不要在 <code>finally</code> 中 <code>return</code>，否则可能覆盖正常返回值或压制异常。</li>
+<li>异常消息应说明失败上下文，但不要泄露密码、令牌或敏感数据。</li>
+<li>库代码应抛出异常，由应用边界决定记录、重试或转换响应，避免重复记录同一异常。</li>
+</ul>
+<h2 id="5-面试速查">5. 面试速查</h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>问题</th>
+<th>结论</th>
+</tr></thead><tbody>
+<tr>
+<td><code>else</code> 何时执行？</td>
+<td><code>try</code> 块没有抛出异常时执行</td>
+</tr>
+<tr>
+<td><code>finally</code> 何时执行？</td>
+<td>正常返回、异常或提前退出时通常都会执行</td>
+</tr>
+<tr>
+<td><code>raise</code> 与 <code>raise error</code> 有何区别？</td>
+<td>前者保留当前 traceback 重新抛出；后者会改变重新抛出位置</td>
+</tr>
+<tr>
+<td>为什么不建议裸 <code>except</code>？</td>
+<td>它会捕获通常应继续传播的 <code>BaseException</code> 子类</td>
+</tr>
+<tr>
+<td><code>assert</code> 能否代替业务校验？</td>
+<td>不能，优化模式可能移除断言</td>
+</tr>
+</tbody></table></div>
+<h2 id="6-参考资料">6. 参考资料</h2>
+<ul>
+<li><a href="https://docs.python.org/3/tutorial/errors.html">Python 官方教程：Errors and Exceptions</a></li>
+<li><a href="https://docs.python.org/3/library/exceptions.html">Python 官方文档：Built-in Exceptions</a></li>
+<li><a href="https://docs.python.org/3/reference/compound_stmts.html#the-try-statement">Python 语言参考：The try statement</a></li>
+<li><a href="https://docs.python.org/3/library/exceptions.html#exception-context">Python 官方文档：Exception context</a></li>
+<li><a href="https://github.com/patrickloeber/python-engineer-notebooks/blob/master/advanced-python/09-Exceptions.ipynb">参考 Notebook：09-Exceptions.ipynb</a></li>
+</ul>
+  </main>
+</body>
+</html>
